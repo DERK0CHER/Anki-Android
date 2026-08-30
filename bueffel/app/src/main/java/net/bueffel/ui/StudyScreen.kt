@@ -1,7 +1,6 @@
 package net.bueffel.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -10,7 +9,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
@@ -219,16 +217,22 @@ private fun Round(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
         ) {
-            AnimatedVisibility(
-                visible = picked != null,
-                enter =
-                    fadeIn(tween(BueffelMotion.Quick)) +
-                        slideInVertically(tween(BueffelMotion.Quick)) { it / 3 },
-                exit = fadeOut(tween(BueffelMotion.Quick)),
-            ) {
-                if (picked != null) {
-                    Verdict(correct = picked == view.correctPosition)
-                }
+            // the reveal is driven by a value rather than by AnimatedVisibility: inside a Box the
+            // ColumnScope overload of that is the one in scope, and it cannot be called here
+            val appear by animateFloatAsState(
+                targetValue = if (picked == null) 0f else 1f,
+                animationSpec = tween(BueffelMotion.Quick),
+                label = "verdict",
+            )
+            if (picked != null) {
+                Verdict(
+                    correct = picked == view.correctPosition,
+                    modifier =
+                        Modifier.graphicsLayer {
+                            alpha = appear
+                            translationY = (1f - appear) * VERDICT_RISE.toPx()
+                        },
+                )
             }
         }
     }
@@ -236,6 +240,9 @@ private fun Round(
 
 /** Kept clear of the answer boxes so revealing a verdict never moves them */
 private val VERDICT_STRIP_HEIGHT = 76.dp
+
+/** How far the verdict rises into place as it appears */
+private val VERDICT_RISE = 10.dp
 
 /** Progress, a way back out, and taking back a mis-tap */
 @Composable
@@ -380,8 +387,11 @@ private fun AnswerCard(
  * spelling it out again ran to three lines and off the bottom of the strip.
  */
 @Composable
-private fun Verdict(correct: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun Verdict(
+    correct: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Text(
             text = if (correct) "Richtig" else "Falsch",
             style = MaterialTheme.typography.titleLarge,
