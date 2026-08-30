@@ -13,10 +13,12 @@ on:
           - release
   push:
     branches:
+      - 'main'
       - 'claude/**'
 
 permissions:
-  contents: read
+  # `contents: write` so the build can publish the APK as a release asset
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -103,6 +105,28 @@ jobs:
           path: arm64-apk/*.apk
           retention-days: 30
           if-no-files-found: error
+
+      # Publish the APKs as a rolling pre-release. Unlike an Actions artifact, a
+      # release asset is a plain .apk on a stable URL: no GitHub login and no zip
+      # to unpack, so it can be tapped straight from a phone browser to install.
+      - name: Publish the APKs as a rolling release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="latest-$BUILD_TYPE"
+          notes="Automatic $BUILD_TYPE build of ${GITHUB_SHA:0:7}.
+
+          For a phone take the arm64-v8a file. The debug build uses the
+          application id com.ichi2.anki.debug, so it installs alongside a
+          regular AnkiDroid rather than replacing it."
+          # delete-then-create keeps one rolling release instead of piling them up
+          gh release delete "$tag" --yes --cleanup-tag || true
+          gh release create "$tag" \
+            --title "Latest $BUILD_TYPE build" \
+            --notes "$notes" \
+            --prerelease \
+            $(find AnkiDroid/build/outputs/apk -name '*.apk' | sort)
 
       - name: List produced APKs
         if: always()
