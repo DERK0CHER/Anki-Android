@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -101,7 +100,6 @@ fun StudyScreen(
     ) {
         TopBar(
             progress = session.progress,
-            strength = card?.strength ?: 0f,
             canUndo = session.canUndo && chosen == null,
             onUndo = {
                 if (session.undo()) {
@@ -143,23 +141,18 @@ fun StudyScreen(
                 )
                 Spacer(Modifier.height(BueffelShape.Gap))
             }
-            Spacer(Modifier.height(12.dp))
-        }
 
-        // the strip keeps its height whether or not an answer is showing, so the boxes above
-        // never shift under a finger that is about to tap one
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
-        ) {
-            if (chosen != null) {
-                Verdict(
-                    correct = order.getOrNull(chosen) == question.correctIndex,
-                    correctAnswer = question.correctAnswer,
-                )
+            // the strip keeps its height whether or not an answer is showing, so the boxes above
+            // never shift under a finger that is about to tap one
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
+            ) {
+                if (chosen != null) {
+                    Verdict(correct = order.getOrNull(chosen) == question.correctIndex)
+                }
             }
         }
-        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -170,7 +163,6 @@ private val VERDICT_STRIP_HEIGHT = 76.dp
 @Composable
 private fun TopBar(
     progress: Float,
-    strength: Float,
     canUndo: Boolean,
     onUndo: () -> Unit,
     onLeave: () -> Unit,
@@ -182,19 +174,7 @@ private fun TopBar(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             PillAction(text = "Schluss", onClick = onLeave)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // the same bar in miniature for the question on screen, so the big one below
-                // stays the reading for the whole set
-                LernOMeter(
-                    fraction = strength,
-                    modifier = Modifier.width(88.dp),
-                    height = 8.dp,
-                )
-                if (canUndo) {
-                    Spacer(Modifier.width(10.dp))
-                    PillAction(text = "Zurück", onClick = onUndo)
-                }
-            }
+            if (canUndo) PillAction(text = "Zurück", onClick = onUndo)
         }
         Spacer(Modifier.height(18.dp))
         LernOMeter(fraction = progress, label = "Lern-O-Meter", height = 12.dp)
@@ -285,15 +265,17 @@ private fun AnswerPill(
     }
 }
 
-/** Says how it went. Tapping anywhere on the screen moves on. */
+/**
+ * Says how it went. Tapping anywhere on the screen moves on.
+ *
+ * It does not repeat the right answer: that answer is on screen already, outlined in green, and
+ * spelling it out again ran to three lines and off the bottom of the strip.
+ */
 @Composable
-private fun Verdict(
-    correct: Boolean,
-    correctAnswer: String,
-) {
+private fun Verdict(correct: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (correct) "Richtig" else "Falsch — richtig: $correctAnswer",
+            text = if (correct) "Richtig" else "Falsch",
             style = MaterialTheme.typography.titleLarge,
             color = if (correct) BueffelColors.Correct else BueffelColors.Wrong,
             textAlign = TextAlign.Center,

@@ -98,7 +98,8 @@ private fun DeckRow(
             color = BueffelColors.TextPrimary,
         )
         Spacer(Modifier.height(6.dp))
-        Caption(text = "${deck.cards.size} Fragen · ${deck.learnedCount} sitzen")
+        // "sicher" rather than "sitzen": the count is often one, and "1 sitzen" reads wrong
+        Caption(text = "${deck.cards.size} Fragen · ${deck.learnedCount} sicher")
         Spacer(Modifier.height(16.dp))
         LernOMeter(fraction = deck.progress, label = "Lern-O-Meter", height = 12.dp)
     }

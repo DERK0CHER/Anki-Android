@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -143,11 +144,13 @@ fun LernOMeter(
                         .clip(RoundedCornerShape(BueffelShape.Pill)),
             ) {
                 // as wide as the whole track, so the gradient does not squeeze into the filled
-                // part: the shade at the tip then means the same thing at every length
+                // part: the shade at the tip then means the same thing at every length. It has
+                // to be requiredWidth - a plain width is coerced back to the parent's, which is
+                // exactly the squeezing this avoids.
                 Box(
                     modifier =
                         Modifier
-                            .width(track)
+                            .requiredWidth(track)
                             .height(height)
                             .background(
                                 Brush.horizontalGradient(
