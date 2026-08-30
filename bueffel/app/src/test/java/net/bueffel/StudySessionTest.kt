@@ -103,6 +103,22 @@ class StudySessionTest {
     }
 
     @Test
+    fun `four right in a row sends a question a full twenty back`() {
+        // every card one answer away from the fourth box, so the first one crosses it here
+        val session = StudySession(deck(30, box = 3))
+        val first = requireNotNull(session.current()).question.prompt
+
+        session.answer(correct = true)
+        var seenBefore = 0
+        while (requireNotNull(session.current()).question.prompt != first) {
+            seenBefore++
+            session.answer(correct = true)
+        }
+
+        assertEquals(20, seenBefore)
+    }
+
+    @Test
     fun `the wait grows with every box`() {
         assertEquals(Card.LEARNED_BOX, StudySession.GAPS.size)
         assertTrue(StudySession.GAPS.zipWithNext().all { (a, b) -> b > a })

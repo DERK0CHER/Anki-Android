@@ -1,9 +1,17 @@
 package net.bueffel.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,19 +29,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.bueffel.ui.theme.BueffelColors
+import net.bueffel.ui.theme.BueffelMotion
 import net.bueffel.ui.theme.BueffelShape
 import kotlin.math.roundToInt
 
-/** The one button shape the app uses: a wide rounded bar */
+/**
+ * The one button shape the app uses: a wide rounded bar.
+ *
+ * It gives under the finger - a small, quick scale-down while pressed - which is the only
+ * touch feedback a black interface needs.
+ */
 @Composable
 fun BueffelButton(
     text: String,
@@ -41,6 +59,13 @@ fun BueffelButton(
     enabled: Boolean = true,
     filled: Boolean = true,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && enabled) 0.97f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "buttonPress",
+    )
     val background =
         when {
             !enabled -> BueffelColors.Surface
@@ -58,7 +83,10 @@ fun BueffelButton(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(BueffelShape.Pill))
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }.clip(RoundedCornerShape(BueffelShape.Pill))
                 .background(background)
                 .then(
                     if (filled) {
@@ -69,8 +97,12 @@ fun BueffelButton(
                             RoundedCornerShape(BueffelShape.Pill),
                         )
                     },
-                ).clickable(enabled = enabled, onClick = onClick)
-                .padding(vertical = 18.dp),
+                ).clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    enabled = enabled,
+                    onClick = onClick,
+                ).padding(vertical = 18.dp),
     ) {
         Text(
             text = text,
@@ -95,12 +127,49 @@ fun Caption(
     )
 }
 
+/** A numbered line: a thin ring with the digit, then the step itself */
+@Composable
+fun StepLabel(
+    number: String,
+    text: String,
+    modifier: Modifier = Modifier,
+    textColor: Color = BueffelColors.TextPrimary,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier =
+                Modifier
+                    .size(30.dp)
+                    .border(BorderStroke(1.dp, BueffelColors.Border), CircleShape),
+        ) {
+            Text(
+                text = number,
+                style = MaterialTheme.typography.labelSmall,
+                color = BueffelColors.TextSecondary,
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            color = textColor,
+        )
+    }
+}
+
 /**
  * The Lern-O-Meter: how well a set is known, as one bar.
  *
  * The fill is a real gradient running red, amber, light green across the whole track, and only
  * the earned part of it is drawn. So the colour at the tip is the reading - a bar that is a
  * third full is still red at its end, and one that is nearly full has gone green.
+ *
+ * The drawn part eases towards its new length rather than jumping, but the gradient itself
+ * never moves: growth reveals more of the same run.
  */
 @Composable
 fun LernOMeter(
@@ -110,6 +179,11 @@ fun LernOMeter(
     label: String? = null,
 ) {
     val safe = fraction.coerceIn(0f, 1f)
+    val drawn by animateFloatAsState(
+        targetValue = safe,
+        animationSpec = tween(BueffelMotion.Settle),
+        label = "meterFill",
+    )
     Column(modifier = modifier) {
         if (label != null) {
             Row(
@@ -135,7 +209,7 @@ fun LernOMeter(
             val track = maxWidth
             // never thinner than it is tall once there is anything at all: a one-box start
             // should read as a dot of red, not as an empty bar
-            val filled = if (safe <= 0f) 0.dp else maxOf(track * safe, height)
+            val filled = if (drawn <= 0f) 0.dp else maxOf(track * drawn, height)
             val trackPx = with(LocalDensity.current) { track.toPx() }
             Box(
                 modifier =
@@ -165,7 +239,7 @@ fun LernOMeter(
     }
 }
 
-/** The pill switch from the reference screens: a track, a knob, and a word beside it */
+/** The pill switch from the reference screens: a track, a sliding knob, and a word beside it */
 @Composable
 fun PillToggle(
     checked: Boolean,
@@ -173,6 +247,16 @@ fun PillToggle(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val knobTravel by animateDpAsState(
+        targetValue = if (checked) 22.dp else 0.dp,
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "knob",
+    )
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) BueffelColors.TextPrimary else BueffelColors.SurfaceRaised,
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "track",
+    )
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -182,13 +266,13 @@ fun PillToggle(
                 .padding(vertical = 6.dp),
     ) {
         Box(
-            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+            contentAlignment = Alignment.CenterStart,
             modifier =
                 Modifier
                     .width(52.dp)
                     .height(30.dp)
                     .clip(RoundedCornerShape(BueffelShape.Pill))
-                    .background(if (checked) BueffelColors.TextPrimary else BueffelColors.SurfaceRaised)
+                    .background(trackColor)
                     .border(
                         BorderStroke(1.dp, if (checked) BueffelColors.TextPrimary else BueffelColors.Border),
                         RoundedCornerShape(BueffelShape.Pill),
@@ -197,6 +281,7 @@ fun PillToggle(
             Box(
                 modifier =
                     Modifier
+                        .offset(x = knobTravel)
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(if (checked) BueffelColors.Background else BueffelColors.TextMuted),

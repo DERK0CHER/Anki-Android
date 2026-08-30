@@ -39,6 +39,9 @@ import net.bueffel.ui.theme.BueffelShape
  * the clipboard. So this screen hands out the prompt to paste into that chat, then reads the
  * answer back off the clipboard. Nobody types a question set on a phone, and the paragraph-sized
  * text box this screen used to have could not scroll inside a scrolling page, so it clipped.
+ *
+ * The way out is pinned to the bottom edge, where a cancel belongs, instead of trailing the
+ * content into the middle of the screen.
  */
 @Composable
 fun ImportScreen(
@@ -59,76 +62,70 @@ fun ImportScreen(
                 .background(BueffelColors.Background)
                 .systemBarsPadding()
                 .imePadding()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = BueffelShape.Gutter),
     ) {
-        Spacer(Modifier.height(28.dp))
-        Text(
-            text = "einfügen",
-            style = MaterialTheme.typography.displayMedium,
-            color = BueffelColors.TextPrimary,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "Lass dir die Fragen von einer KI schreiben. Den Prompt dafür gibt es hier.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = BueffelColors.TextSecondary,
-        )
-
-        Spacer(Modifier.height(32.dp))
-        Step(number = "1", text = "Prompt kopieren, in einen KI-Chat einfügen")
-        Spacer(Modifier.height(10.dp))
-        BueffelButton(
-            text = if (promptCopied) "Prompt kopiert ✓" else "Prompt kopieren",
-            onClick = {
-                clipboard.setText(AnnotatedString(AI_PROMPT))
-                promptCopied = true
-            },
-            filled = false,
-        )
-
-        Spacer(Modifier.height(24.dp))
-        Step(number = "2", text = "Antwort der KI kopieren, hier einlesen")
-        Spacer(Modifier.height(10.dp))
-        BueffelButton(
-            text = "Aus Zwischenablage einlesen",
-            onClick = { parsed = QuestionParser.parse(clipboard.getText()?.text.orEmpty()) },
-        )
-
-        parsed?.let { result ->
-            Spacer(Modifier.height(24.dp))
-            ResultPanel(result)
-        }
-
-        if (found.isNotEmpty()) {
-            Spacer(Modifier.height(20.dp))
-            Caption(text = "NAME")
-            Spacer(Modifier.height(8.dp))
-            NameField(value = name, onValueChange = { name = it })
-            Spacer(Modifier.height(20.dp))
-            BueffelButton(
-                text = "${found.size} Fragen übernehmen",
-                onClick = { onImport(name.ifBlank { defaultName(found) }, found) },
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(Modifier.height(28.dp))
+            Text(
+                text = "einfügen",
+                style = MaterialTheme.typography.displayMedium,
+                color = BueffelColors.TextPrimary,
             )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "Lass dir die Fragen von einer KI schreiben. Den Prompt dafür gibt es hier.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = BueffelColors.TextSecondary,
+            )
+
+            Spacer(Modifier.height(36.dp))
+            StepLabel(number = "1", text = "Prompt kopieren, in einen KI-Chat einfügen")
+            Spacer(Modifier.height(14.dp))
+            BueffelButton(
+                text = if (promptCopied) "Prompt kopiert ✓" else "Prompt kopieren",
+                onClick = {
+                    clipboard.setText(AnnotatedString(AI_PROMPT))
+                    promptCopied = true
+                },
+                filled = false,
+            )
+
+            Spacer(Modifier.height(28.dp))
+            StepLabel(number = "2", text = "Antwort der KI kopieren, hier einlesen")
+            Spacer(Modifier.height(14.dp))
+            BueffelButton(
+                text = "Aus Zwischenablage einlesen",
+                onClick = { parsed = QuestionParser.parse(clipboard.getText()?.text.orEmpty()) },
+            )
+
+            parsed?.let { result ->
+                Spacer(Modifier.height(24.dp))
+                ResultPanel(result)
+            }
+
+            if (found.isNotEmpty()) {
+                Spacer(Modifier.height(20.dp))
+                Caption(text = "NAME")
+                Spacer(Modifier.height(8.dp))
+                NameField(value = name, onValueChange = { name = it })
+                Spacer(Modifier.height(20.dp))
+                BueffelButton(
+                    text = "${found.size} Fragen übernehmen",
+                    onClick = { onImport(name.ifBlank { defaultName(found) }, found) },
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
         }
 
-        Spacer(Modifier.height(12.dp))
         BueffelButton(text = "Abbrechen", onClick = onCancel, filled = false)
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(20.dp))
     }
-}
-
-/** A numbered step, so a two-part flow reads as two parts */
-@Composable
-private fun Step(
-    number: String,
-    text: String,
-) {
-    Text(
-        text = "$number   $text",
-        style = MaterialTheme.typography.titleMedium,
-        color = BueffelColors.TextPrimary,
-    )
 }
 
 /** What the clipboard turned out to contain */
@@ -141,7 +138,7 @@ private fun ResultPanel(result: QuestionParser.ImportResult) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(BueffelShape.Radius))
                 .background(BueffelColors.Surface)
-                .padding(20.dp),
+                .padding(22.dp),
     ) {
         Text(
             text =

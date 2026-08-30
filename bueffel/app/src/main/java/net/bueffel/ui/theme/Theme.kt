@@ -60,13 +60,24 @@ object BueffelColors {
 
 /** Radii and spacing, in one place so every surface agrees */
 object BueffelShape {
-    /** Panels and answer boxes */
-    val Radius = 24.dp
+    /** Panels and answer boxes: generous, as on the reference screens */
+    val Radius = 28.dp
 
     /** Buttons are fully round, as on the reference screens */
     val Pill = 999.dp
     val Gutter = 24.dp
     val Gap = 12.dp
+}
+
+/**
+ * The two speeds the interface moves at.
+ *
+ * [Quick] is for feedback under a finger, [Settle] for content taking its place. Everything
+ * animates at one of these, so the app has a gait instead of a bag of durations.
+ */
+object BueffelMotion {
+    val Quick = 140
+    val Settle = 320
 }
 
 private val BueffelColorScheme =
@@ -99,7 +110,8 @@ private val BueffelTypography =
         bodyLarge = TextStyle(fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Normal),
         bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal),
         labelLarge = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-        labelSmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+        // Captions get a little tracking, so small grey lines read as labels rather than prose
+        labelSmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp),
     )
 
 /** The app is black whatever the system theme says: a light variant would be a different design. */

@@ -125,6 +125,39 @@ class ScreenshotTest {
         capture("05-study-wrong")
     }
 
+    @Test
+    fun studyFinished() {
+        // one question, one box short of learned: a single right answer finishes the deck
+        val deck =
+            Deck(
+                id = "last",
+                name = "Theorieprüfung Klasse B",
+                cards =
+                    listOf(
+                        Card(
+                            Question(
+                                prompt = "Was bedeutet ein durchgezogener Mittelstreifen?",
+                                answers =
+                                    listOf(
+                                        "Überholen ist erlaubt",
+                                        "Er darf nicht überfahren werden",
+                                        "Er markiert eine Baustelle",
+                                    ),
+                                correctIndex = 1,
+                            ),
+                            box = Card.LEARNED_BOX - 1,
+                        ),
+                    ),
+            )
+        composeRule.setContent {
+            BueffelTheme { StudyScreen(deck = deck, soundOn = false, onFinished = {}, onLeave = {}) }
+        }
+        composeRule.onNodeWithText("Er darf nicht überfahren werden").performClick()
+        // tapping anywhere moves on; the meter's caption is a target outside every answer box
+        composeRule.onNodeWithText("Lern-O-Meter").performClick()
+        capture("06-study-finished")
+    }
+
     private companion object {
         const val OUTPUT_DIR = "build/outputs/roborazzi"
     }

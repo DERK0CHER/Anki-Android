@@ -1,10 +1,24 @@
 package net.bueffel.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.bueffel.audio.Feedback
@@ -37,10 +52,15 @@ import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.ui.theme.BueffelColors
+import net.bueffel.ui.theme.BueffelMotion
 import net.bueffel.ui.theme.BueffelShape
 
 /**
  * The study loop: a question, one box per answer, and nothing else on screen.
+ *
+ * The question hangs high with air around it and the answers gather at the bottom, under the
+ * thumb that has to hit them; the space between the two is the screen breathing, not leftovers.
+ * Rounds slide in from the right and out to the left, so answering visibly moves the deck along.
  *
  * Picking a box reveals the outcome at once and the screen then waits. Nothing advances on a
  * timer, so how long the answer stays up is the reader's decision.
@@ -57,27 +77,32 @@ fun StudyScreen(
     // bumped after each answer so the screen recomposes off the session's new state
     var round by remember { mutableIntStateOf(0) }
 
-    val card = remember(round) { session.current() }
-    val chosen = picked
-
     // A fresh order every time the question comes round: with a fixed order the answer that
     // gets remembered is "the second one from the top" rather than the answer itself.
-    val order =
+    val view =
         remember(round) {
-            card
-                ?.question
-                ?.answers
-                ?.indices
-                ?.shuffled() ?: emptyList()
+            session.current()?.let { card ->
+                val order =
+                    card.question.answers.indices
+                        .shuffled()
+                RoundView(
+                    round = round,
+                    prompt = card.question.prompt,
+                    answers = order.map { card.question.answers[it] },
+                    correctPosition = order.indexOf(card.question.correctIndex),
+                    remaining = session.remaining,
+                )
+            }
         }
+    val chosen = picked
 
     val feedback = remember { Feedback() }
     DisposableEffect(Unit) { onDispose { feedback.release() } }
 
     fun advance() {
         val position = picked ?: return
-        val question = session.current()?.question ?: return
-        session.answer(correct = order.getOrNull(position) == question.correctIndex)
+        val current = view ?: return
+        session.answer(correct = position == current.correctPosition)
         picked = null
         round++
     }
@@ -110,46 +135,99 @@ fun StudyScreen(
             onLeave = { onLeave(session.snapshot()) },
         )
 
-        if (card == null) {
-            FinishedPanel(total = session.total, onDone = { onFinished(session.snapshot()) })
-            return@Column
-        }
-
-        val question = card.question
-
-        Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-        ) {
-            Text(
-                text = question.prompt,
-                style = MaterialTheme.typography.displaySmall,
-                color = BueffelColors.TextPrimary,
-            )
-
-            Spacer(Modifier.height(26.dp))
-
-            order.forEachIndexed { position, answerIndex ->
-                AnswerPill(
-                    text = question.answers[answerIndex],
-                    state = answerState(position, picked, order.indexOf(question.correctIndex)),
-                    onClick = {
+        AnimatedContent(
+            targetState = view,
+            modifier = Modifier.weight(1f),
+            transitionSpec = {
+                (
+                    slideInHorizontally(tween(BueffelMotion.Settle)) { it / 3 } +
+                        fadeIn(tween(BueffelMotion.Settle))
+                ) togetherWith
+                    (
+                        slideOutHorizontally(tween(BueffelMotion.Settle)) { -it / 3 } +
+                            fadeOut(tween(BueffelMotion.Quick))
+                    )
+            },
+            label = "round",
+        ) { target ->
+            if (target == null) {
+                FinishedPanel(total = session.total, onDone = { onFinished(session.snapshot()) })
+            } else {
+                Round(
+                    view = target,
+                    picked = if (target.round == round) chosen else null,
+                    onPick = { position ->
                         if (picked == null) {
                             picked = position
-                            if (soundOn) feedback.play(correct = answerIndex == question.correctIndex)
+                            if (soundOn) feedback.play(correct = position == target.correctPosition)
                         }
                     },
                 )
-                Spacer(Modifier.height(BueffelShape.Gap))
             }
+        }
+    }
+}
 
-            // the strip keeps its height whether or not an answer is showing, so the boxes above
-            // never shift under a finger that is about to tap one
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
+/** Everything one round shows, captured so entering and leaving rounds can animate side by side */
+private data class RoundView(
+    val round: Int,
+    val prompt: String,
+    val answers: List<String>,
+    val correctPosition: Int,
+    val remaining: Int,
+)
+
+/** One question with its answers: the question up in the air, the answers down at the thumb */
+@Composable
+private fun Round(
+    view: RoundView,
+    picked: Int?,
+    onPick: (Int) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(Modifier.height(6.dp))
+            Caption(
+                text = if (view.remaining == 1) "Letzte Frage" else "Noch ${view.remaining} Fragen",
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = view.prompt,
+                style = MaterialTheme.typography.displaySmall,
+                color = BueffelColors.TextPrimary,
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+
+        view.answers.forEachIndexed { position, answer ->
+            AnswerCard(
+                text = answer,
+                state = answerState(position, picked, view.correctPosition),
+                onClick = { onPick(position) },
+            )
+            Spacer(Modifier.height(BueffelShape.Gap))
+        }
+
+        // the strip keeps its height whether or not an answer is showing, so the boxes above
+        // never shift under a finger that is about to tap one
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
+        ) {
+            AnimatedVisibility(
+                visible = picked != null,
+                enter =
+                    fadeIn(tween(BueffelMotion.Quick)) +
+                        slideInVertically(tween(BueffelMotion.Quick)) { it / 3 },
+                exit = fadeOut(tween(BueffelMotion.Quick)),
             ) {
-                if (chosen != null) {
-                    Verdict(correct = order.getOrNull(chosen) == question.correctIndex)
+                if (picked != null) {
+                    Verdict(correct = picked == view.correctPosition)
                 }
             }
         }
@@ -215,47 +293,77 @@ private fun answerState(
     }
 
 /**
- * One answer, as a pill carrying its own text.
+ * One answer, as a rounded box carrying its own text.
+ *
+ * A box rather than a stadium: full pill ends eat into the first and last line of a two-line
+ * answer, and four tall pills in a stack read as four separate blobs instead of one list.
  *
  * There is no letter on it. The answer is written right there, so a badge saying "C" beside it
  * would only name something the reader is already looking at.
  */
 @Composable
-private fun AnswerPill(
+private fun AnswerCard(
     text: String,
     state: AnswerState,
     onClick: () -> Unit,
 ) {
-    val fill =
-        when (state) {
-            AnswerState.Correct -> BueffelColors.CorrectSurface
-            AnswerState.Wrong -> BueffelColors.WrongSurface
-            else -> BueffelColors.Surface
-        }
-    val stroke =
-        when (state) {
-            AnswerState.Correct -> BueffelColors.Correct
-            AnswerState.Wrong -> BueffelColors.Wrong
-            else -> BueffelColors.Border
-        }
-    val textColor =
-        when (state) {
-            AnswerState.Dimmed -> BueffelColors.TextMuted
-            AnswerState.Correct -> BueffelColors.Correct
-            AnswerState.Wrong -> BueffelColors.Wrong
-            else -> BueffelColors.TextPrimary
-        }
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && state == AnswerState.Untouched) 0.97f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "answerPress",
+    )
+    val fill by animateColorAsState(
+        targetValue =
+            when (state) {
+                AnswerState.Correct -> BueffelColors.CorrectSurface
+                AnswerState.Wrong -> BueffelColors.WrongSurface
+                else -> BueffelColors.Surface
+            },
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "answerFill",
+    )
+    val stroke by animateColorAsState(
+        targetValue =
+            when (state) {
+                AnswerState.Correct -> BueffelColors.Correct
+                AnswerState.Wrong -> BueffelColors.Wrong
+                AnswerState.Dimmed -> BueffelColors.Surface
+                else -> BueffelColors.Border
+            },
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "answerStroke",
+    )
+    val textColor by animateColorAsState(
+        targetValue =
+            when (state) {
+                AnswerState.Dimmed -> BueffelColors.TextMuted
+                AnswerState.Correct -> BueffelColors.Correct
+                AnswerState.Wrong -> BueffelColors.Wrong
+                else -> BueffelColors.TextPrimary
+            },
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "answerText",
+    )
 
     Box(
         contentAlignment = Alignment.CenterStart,
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(BueffelShape.Pill))
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }.clip(RoundedCornerShape(BueffelShape.Radius))
                 .background(fill)
-                .border(BorderStroke(1.dp, stroke), RoundedCornerShape(BueffelShape.Pill))
-                .clickable(enabled = state == AnswerState.Untouched, onClick = onClick)
-                .padding(horizontal = 24.dp, vertical = 18.dp),
+                .border(BorderStroke(1.dp, stroke), RoundedCornerShape(BueffelShape.Radius))
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    enabled = state == AnswerState.Untouched,
+                    onClick = onClick,
+                ).padding(horizontal = 22.dp, vertical = 16.dp),
     ) {
         Text(
             text = text,
@@ -292,6 +400,7 @@ private fun FinishedPanel(
     onDone: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
+        Spacer(Modifier.weight(1f))
         Text(
             text = "durch",
             style = MaterialTheme.typography.displayLarge,
@@ -303,7 +412,7 @@ private fun FinishedPanel(
             style = MaterialTheme.typography.bodyLarge,
             color = BueffelColors.TextSecondary,
         )
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(36.dp))
         BueffelButton(text = "Fertig", onClick = onDone)
         Spacer(Modifier.height(20.dp))
     }

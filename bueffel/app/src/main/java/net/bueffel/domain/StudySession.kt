@@ -104,7 +104,12 @@ class StudySession(
          *
          * One entry per box, so the wait grows all the way to the last one: a question seen
          * seven times running should not come back as quickly as one seen twice.
+         *
+         * Four right in a row is the point where a question stops being shaky, so from there it
+         * goes a full twenty back rather than the eight it used to. Asking again sooner than that
+         * only proves the answer is still in short term memory. The boxes past four keep
+         * stretching, so the last few passes are spread across most of a sitting.
          */
-        val GAPS = listOf(2, 3, 4, 6, 8, 11, 15, 20)
+        val GAPS = listOf(2, 4, 8, 13, 20, 28, 38, 50)
     }
 }
