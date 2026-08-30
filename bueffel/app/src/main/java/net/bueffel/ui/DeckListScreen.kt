@@ -3,9 +3,7 @@ package net.bueffel.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -100,41 +98,8 @@ private fun DeckRow(
             color = BueffelColors.TextPrimary,
         )
         Spacer(Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Caption(text = "${deck.cards.size} Fragen")
-            Caption(
-                text = "${deck.learnedCount} von ${deck.cards.size} sitzt",
-                color = BueffelColors.progressColor(deck.progress),
-            )
-        }
-        Spacer(Modifier.height(14.dp))
-        ProgressLine(fraction = deck.progress)
-    }
-}
-
-/** How much of a set has reached the last box */
-@Composable
-private fun ProgressLine(fraction: Float) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(BueffelShape.Pill))
-                .background(BueffelColors.SurfaceRaised),
-    ) {
-        if (fraction > 0f) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(BueffelShape.Pill))
-                        .background(BueffelColors.progressColor(fraction)),
-            )
-        }
+        Caption(text = "${deck.cards.size} Fragen · ${deck.learnedCount} sitzen")
+        Spacer(Modifier.height(16.dp))
+        LernOMeter(fraction = deck.progress, label = "Lern-O-Meter", height = 12.dp)
     }
 }

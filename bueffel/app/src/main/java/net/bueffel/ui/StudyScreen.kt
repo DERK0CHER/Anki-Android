@@ -183,63 +183,21 @@ private fun TopBar(
         ) {
             PillAction(text = "Schluss", onClick = onLeave)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StrengthMeter(strength)
+                // the same bar in miniature for the question on screen, so the big one below
+                // stays the reading for the whole set
+                LernOMeter(
+                    fraction = strength,
+                    modifier = Modifier.width(88.dp),
+                    height = 8.dp,
+                )
                 if (canUndo) {
                     Spacer(Modifier.width(10.dp))
                     PillAction(text = "Zurück", onClick = onUndo)
                 }
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(BueffelShape.Pill))
-                    .background(BueffelColors.SurfaceRaised),
-        ) {
-            if (progress > 0f) {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(progress)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(BueffelShape.Pill))
-                            .background(BueffelColors.Correct),
-                )
-            }
-        }
-    }
-}
-
-/**
- * How far the question on screen has come, as one pip per box.
- *
- * The filled pips run along a gradient from red to light green, so the shade alone says how
- * safe this question is; the pips say how many steps are left.
- */
-@Composable
-private fun StrengthMeter(strength: Float) {
-    val filled = (strength * Card.LEARNED_BOX).toInt()
-    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        repeat(Card.LEARNED_BOX) { index ->
-            val on = index < filled
-            Box(
-                modifier =
-                    Modifier
-                        .width(if (on) 10.dp else 6.dp)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(BueffelShape.Pill))
-                        .background(
-                            if (on) {
-                                BueffelColors.progressColor((index + 1f) / Card.LEARNED_BOX)
-                            } else {
-                                BueffelColors.Border
-                            },
-                        ),
-            )
-        }
+        Spacer(Modifier.height(18.dp))
+        LernOMeter(fraction = progress, label = "Lern-O-Meter", height = 12.dp)
     }
 }
 
@@ -359,7 +317,7 @@ private fun FinishedPanel(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "Alle $total Fragen sitzen — jede viermal hintereinander richtig.",
+            text = "Alle $total Fragen sitzen — jede ${Card.LEARNED_BOX}-mal hintereinander richtig.",
             style = MaterialTheme.typography.bodyLarge,
             color = BueffelColors.TextSecondary,
         )

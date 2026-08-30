@@ -50,8 +50,9 @@ jobs:
 
       # Draws the real Compose screens to PNGs. There is no emulator here, so this is the only
       # way the interface gets seen; the images are committed back so they can be reviewed.
+      # It has to be the record task - captureRoboImage writes nothing under a plain test run.
       - name: Render screenshots
-        run: ./gradlew :app:testDebugUnitTest --tests 'net.bueffel.ScreenshotTest'
+        run: ./gradlew :app:recordRoborazziDebug
 
       - name: Commit the screenshots
         if: github.event_name == 'push'
