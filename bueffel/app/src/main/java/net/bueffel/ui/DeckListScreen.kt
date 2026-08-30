@@ -62,9 +62,11 @@ fun DeckListScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                // gravity towards the buttons below: a short list clusters at the bottom
-                // instead of leaving a black gulf between itself and the actions
-                verticalArrangement = Arrangement.spacedBy(BueffelShape.Gap, Alignment.Bottom),
+                // A short list sits in the middle of what is left. Pinned to the bottom it
+                // stranded the wordmark alone above half a screen of black and squashed the
+                // cards against the buttons; pinned to the top it left the same gulf below.
+                // Centred, the leftover splits in two and reads as air rather than as a hole.
+                verticalArrangement = Arrangement.spacedBy(BueffelShape.Gap, Alignment.CenterVertically),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 4.dp),
             ) {
                 items(decks, key = { it.id }) { deck ->
