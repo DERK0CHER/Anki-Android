@@ -347,6 +347,13 @@ open class PrefsRepository(
     /** Show the study progress bar above the answer buttons */
     val studyProgressBar by booleanPref(R.string.study_progress_bar_key, defaultValue = true)
 
+    /**
+     * Require several correct answers in a row before a multiple choice card is done.
+     *
+     * Off by default: it edits the deck's learning steps, which syncs to AnkiWeb.
+     */
+    val multipleChoiceDrill by booleanPref(R.string.multiple_choice_drill_key, defaultValue = false)
+
     val doubleTapInterval by intPref(R.string.double_tap_timeout_pref_key, defaultValue = 200)
     val newStudyScreenAnswerButtonSize by intPref(R.string.answer_button_size_pref_key, defaultValue = 100)
 

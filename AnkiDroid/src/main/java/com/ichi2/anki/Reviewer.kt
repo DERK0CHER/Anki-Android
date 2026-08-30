@@ -80,6 +80,7 @@ import com.ichi2.anki.common.utils.android.showThemedToast
 import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.Collection
+import com.ichi2.anki.libanki.DeckConfig
 import com.ichi2.anki.libanki.QueueType
 import com.ichi2.anki.libanki.redoAvailable
 import com.ichi2.anki.libanki.redoLabel
@@ -94,6 +95,7 @@ import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.isReco
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.setEditorStatus
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.tempAudioPath
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.RecordingState
+import com.ichi2.anki.multiplechoice.MultipleChoiceDrill
 import com.ichi2.anki.multiplechoice.MultipleChoiceParser
 import com.ichi2.anki.multiplechoice.MultipleChoiceQuestion
 import com.ichi2.anki.observability.undoableOp
@@ -146,6 +148,8 @@ import com.ichi2.utils.tintOverflowMenuIcons
 import com.ichi2.utils.title
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.json.JSONArray
+import org.json.JSONObject
 import timber.log.Timber
 import kotlin.coroutines.resume
 import com.ichi2.anki.common.android.R as CommonR
@@ -197,6 +201,12 @@ open class Reviewer :
 
     /** The multiple choice question of [currentCard], or `null` if it isn't one */
     private var currentMultipleChoice: MultipleChoiceQuestion? = null
+
+    /** Correct answers in a row per card, for this session */
+    private val drill = MultipleChoiceDrill()
+
+    /** Deck config presets already considered by [applyDrillLearningSteps] this session */
+    private val drillStepsAppliedTo = mutableSetOf<Long>()
 
     // Study progress bar shown above the answer buttons
     private var studyProgressLayout: View? = null
@@ -1540,6 +1550,7 @@ open class Reviewer :
         Timber.d("multiple choice card with %d options", question.options.size)
         currentMultipleChoice = question
         showMultipleChoiceButtons(question)
+        applyDrillLearningSteps(card)
     }
 
     private fun showMultipleChoiceButtons(question: MultipleChoiceQuestion) {
@@ -1567,24 +1578,75 @@ open class Reviewer :
     /** Reveals the answer, tells the user whether they were right, and grades the card */
     private fun onMultipleChoiceSelected(index: Int) {
         val question = currentMultipleChoice ?: return
+        val card = currentCard ?: return
         if (isDisplayingAnswer) return
         val isCorrect = index == question.correctIndex
         Timber.i("multiple choice option %d selected, correct: %b", index, isCorrect)
         hideMultipleChoiceButtons()
         automaticAnswer.onShowAnswer()
         displayCardAnswer()
+
+        val streak = drill.record(card.id, isCorrect)
         if (isCorrect) {
-            showSnackbar(R.string.multiple_choice_correct, Snackbar.LENGTH_SHORT)
+            // 'Good' advances the card one learning step; once it has taken every step it
+            // graduates, which is the streak reaching MultipleChoiceDrill.requiredStreak
+            val message =
+                if (drill.isLearned(card.id)) {
+                    getString(R.string.multiple_choice_learned)
+                } else {
+                    getString(R.string.multiple_choice_correct_streak, streak, drill.requiredStreak)
+                }
+            showSnackbar(message, Snackbar.LENGTH_SHORT)
             if (Prefs.multipleChoiceAutoAnswer) {
                 // give the answer a moment to render before moving on
                 executeFunctionWithDelay(AUTO_ANSWER_DELAY_MS) { answerCard(Rating.GOOD) }
             }
         } else {
-            // leave the ease buttons up: the user should read the answer and grade it themselves
             showSnackbar(
                 getString(R.string.multiple_choice_incorrect, question.correctOption.label),
                 Snackbar.LENGTH_LONG,
             )
+            if (Prefs.multipleChoiceAutoAnswer) {
+                // 'Again' puts the card back on the first learning step, so it has to be
+                // answered correctly from scratch. The longer delay is there to read the answer.
+                executeFunctionWithDelay(WRONG_ANSWER_DELAY_MS) { answerCard(Rating.AGAIN) }
+            }
+        }
+    }
+
+    /**
+     * Makes sure the deck of [card] asks for [MultipleChoiceDrill.REQUIRED_STREAK] correct
+     * answers before a card graduates, by giving its preset one learning step per repetition.
+     *
+     * This edits the deck's options, so it only runs when the user turned the drill on. Each
+     * preset is only touched once per session, and only if it has fewer steps than the drill needs.
+     */
+    private fun applyDrillLearningSteps(card: Card) {
+        if (!Prefs.multipleChoiceDrill) return
+        launchCatchingTask {
+            val changed =
+                withCol {
+                    val config = decks.configDictForDeckId(card.did)
+                    // each preset is only considered once per session
+                    if (!drillStepsAppliedTo.add(config.id)) return@withCol false
+                    // go through the JSON text rather than the config's accessors, which are test-only
+                    val json = JSONObject(config.toString())
+                    val newSteps = json.getJSONObject("new").getJSONArray("delays")
+                    val lapseSteps = json.getJSONObject("lapse").getJSONArray("delays")
+                    if (newSteps.length() >= MultipleChoiceDrill.REQUIRED_STREAK &&
+                        lapseSteps.length() >= MultipleChoiceDrill.REQUIRED_STREAK
+                    ) {
+                        return@withCol false
+                    }
+                    Timber.i("applying drill learning steps to deck config %d", config.id)
+                    json.getJSONObject("new").put("delays", JSONArray(MultipleChoiceDrill.DRILL_LEARNING_STEPS))
+                    json.getJSONObject("lapse").put("delays", JSONArray(MultipleChoiceDrill.DRILL_RELEARNING_STEPS))
+                    decks.save(DeckConfig(json.toString()))
+                    true
+                }
+            if (changed) {
+                showSnackbar(R.string.multiple_choice_drill_steps_applied, Snackbar.LENGTH_LONG)
+            }
         }
     }
 

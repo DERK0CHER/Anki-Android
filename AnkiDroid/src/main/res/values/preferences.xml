@@ -275,6 +275,7 @@
     <string name="multiple_choice_buttons_key">multipleChoiceButtons</string>
     <string name="multiple_choice_auto_answer_key">multipleChoiceAutoAnswer</string>
     <string name="study_progress_bar_key">studyProgressBar</string>
+    <string name="multiple_choice_drill_key">multipleChoiceDrill</string>
 
     <!-- Onboarding -->
     <string name="internet_permission_requested_key">internetPermissionRequested</string>

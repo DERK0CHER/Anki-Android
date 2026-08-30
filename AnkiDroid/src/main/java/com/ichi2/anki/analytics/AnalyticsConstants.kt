@@ -174,6 +174,7 @@ object AnalyticsConstants {
             R.string.show_answer_feedback_key,
             R.string.multiple_choice_buttons_key,
             R.string.multiple_choice_auto_answer_key,
+            R.string.multiple_choice_drill_key,
             R.string.study_progress_bar_key,
         )
 }

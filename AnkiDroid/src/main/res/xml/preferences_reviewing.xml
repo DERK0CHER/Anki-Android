@@ -61,6 +61,12 @@
             android:summary="@string/multiple_choice_auto_answer_pref_summ"
             android:title="@string/multiple_choice_auto_answer_pref_title" />
         <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:dependency="@string/multiple_choice_buttons_key"
+            android:key="@string/multiple_choice_drill_key"
+            android:summary="@string/multiple_choice_drill_pref_summ"
+            android:title="@string/multiple_choice_drill_pref_title" />
+        <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="@string/study_progress_bar_key"
             android:summary="@string/study_progress_pref_summ"
