@@ -30,6 +30,7 @@ import android.view.View
 import android.webkit.WebView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.activity.SystemBarStyle
@@ -93,6 +94,8 @@ import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.isReco
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.setEditorStatus
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.tempAudioPath
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.RecordingState
+import com.ichi2.anki.multiplechoice.MultipleChoiceParser
+import com.ichi2.anki.multiplechoice.MultipleChoiceQuestion
 import com.ichi2.anki.observability.undoableOp
 import com.ichi2.anki.pages.PostRequestUri
 import com.ichi2.anki.pages.toIntent
@@ -186,6 +189,22 @@ open class Reviewer :
     private lateinit var textBarReview: TextView
     private lateinit var answerTimer: AnswerTimer
     private var prefHideDueCount = false
+
+    // Multiple choice: A/B/C/D buttons which replace "Show answer"
+    private var multipleChoiceButtonsLayout: LinearLayout? = null
+    private var multipleChoiceButtons: List<View> = emptyList()
+    private var multipleChoiceLabels: List<TextView> = emptyList()
+
+    /** The multiple choice question of [currentCard], or `null` if it isn't one */
+    private var currentMultipleChoice: MultipleChoiceQuestion? = null
+
+    // Study progress bar shown above the answer buttons
+    private var studyProgressLayout: View? = null
+    private var studyProgressBar: ProgressBar? = null
+    private var studyProgressText: TextView? = null
+
+    /** Number of cards answered since this reviewer was opened. Used by the progress bar. */
+    private var cardsAnsweredThisSession = 0
 
     // Whiteboard
     var prefWhiteboard = false
@@ -1202,6 +1221,8 @@ open class Reviewer :
 
     override fun displayAnswerBottomBar() {
         super.displayAnswerBottomBar()
+        // the A/B/C/D buttons only belong on the question side
+        hideMultipleChoiceButtons()
         // Set correct label and background resource for each button
         // Note that it's necessary to set the resource dynamically as the ease2 / ease3 buttons
         // (which libanki expects ease to be 2 and 3) can either be hard, good, or easy - depending on num buttons shown
@@ -1306,6 +1327,7 @@ open class Reviewer :
         textBarNew.text = newCount
         textBarLearn.text = lrnCount
         textBarReview.text = revCount
+        updateStudyProgress(counts.count())
     }
 
     override fun fillFlashcard() {
@@ -1344,6 +1366,7 @@ open class Reviewer :
     override suspend fun answerCardInner(rating: Rating) {
         val state = queueState!!
         val cardId = currentCard!!.id
+        cardsAnsweredThisSession++
         Timber.d("answerCardInner: $cardId $rating")
         var wasLeech = false
         undoableOp(this) {
@@ -1402,6 +1425,7 @@ open class Reviewer :
         answerTimer.setupForCard(getColUnsafe, currentCard!!)
         delayedHide(100)
         super.displayCardQuestion()
+        updateMultipleChoiceButtons()
     }
 
     @VisibleForTesting
@@ -1460,6 +1484,136 @@ open class Reviewer :
         val mark = topBarLayout!!.findViewById<ImageView>(R.id.mark_icon)
         val flag = topBarLayout!!.findViewById<ImageView>(R.id.flag_icon)
         cardMarker = CardMarker(mark, flag)
+
+        initMultipleChoiceButtons()
+        initStudyProgressBar()
+    }
+
+    // region Multiple choice
+
+    private fun initMultipleChoiceButtons() {
+        multipleChoiceButtonsLayout = findViewById(R.id.multiple_choice_buttons)
+        val ids =
+            listOf(
+                R.id.multiple_choice_a to R.id.multiple_choice_a_text,
+                R.id.multiple_choice_b to R.id.multiple_choice_b_text,
+                R.id.multiple_choice_c to R.id.multiple_choice_c_text,
+                R.id.multiple_choice_d to R.id.multiple_choice_d_text,
+            )
+        multipleChoiceButtons = ids.map { findViewById<View>(it.first) }
+        multipleChoiceLabels = ids.map { findViewById<TextView>(it.second) }
+        multipleChoiceButtons.forEachIndexed { index, button ->
+            button.setOnClickListener { onMultipleChoiceSelected(index) }
+        }
+    }
+
+    /**
+     * Detects whether [currentCard] is a multiple choice question and, if so, replaces the
+     * "Show answer" button with one button per option.
+     *
+     * @see MultipleChoiceParser
+     */
+    private fun updateMultipleChoiceButtons() {
+        currentMultipleChoice = null
+        if (!Prefs.multipleChoiceButtons) {
+            hideMultipleChoiceButtons()
+            return
+        }
+        val card = currentCard
+        if (card == null) {
+            hideMultipleChoiceButtons()
+            return
+        }
+        val question =
+            try {
+                val renderOutput = card.renderOutput(getColUnsafe)
+                val fields = card.note(getColUnsafe).items().associate { it[0] to it[1] }
+                MultipleChoiceParser.parse(fields, renderOutput.questionText, renderOutput.answerText)
+            } catch (e: Exception) {
+                Timber.w(e, "unable to detect a multiple choice question")
+                null
+            }
+        if (question == null) {
+            hideMultipleChoiceButtons()
+            return
+        }
+        Timber.d("multiple choice card with %d options", question.options.size)
+        currentMultipleChoice = question
+        showMultipleChoiceButtons(question)
+    }
+
+    private fun showMultipleChoiceButtons(question: MultipleChoiceQuestion) {
+        val layout = multipleChoiceButtonsLayout ?: return
+        multipleChoiceButtons.forEachIndexed { index, button ->
+            val option = question.options.getOrNull(index)
+            if (option == null) {
+                button.visibility = View.GONE
+            } else {
+                button.visibility = View.VISIBLE
+                button.contentDescription = option.text
+                multipleChoiceLabels[index].text = option.label
+            }
+        }
+        layout.visibility = View.VISIBLE
+        // the A/B/C/D bar takes the place of "Show answer"
+        flipCardLayout?.visibility = View.GONE
+        flipCardLayout?.isClickable = false
+    }
+
+    private fun hideMultipleChoiceButtons() {
+        multipleChoiceButtonsLayout?.visibility = View.GONE
+    }
+
+    /** Reveals the answer, tells the user whether they were right, and grades the card */
+    private fun onMultipleChoiceSelected(index: Int) {
+        val question = currentMultipleChoice ?: return
+        if (isDisplayingAnswer) return
+        val isCorrect = index == question.correctIndex
+        Timber.i("multiple choice option %d selected, correct: %b", index, isCorrect)
+        hideMultipleChoiceButtons()
+        automaticAnswer.onShowAnswer()
+        displayCardAnswer()
+        if (isCorrect) {
+            showSnackbar(R.string.multiple_choice_correct, Snackbar.LENGTH_SHORT)
+            if (Prefs.multipleChoiceAutoAnswer) {
+                // give the answer a moment to render before moving on
+                executeFunctionWithDelay(AUTO_ANSWER_DELAY_MS) { answerCard(Rating.GOOD) }
+            }
+        } else {
+            // leave the ease buttons up: the user should read the answer and grade it themselves
+            showSnackbar(
+                getString(R.string.multiple_choice_incorrect, question.correctOption.label),
+                Snackbar.LENGTH_LONG,
+            )
+        }
+    }
+
+    // region Study progress
+
+    private fun initStudyProgressBar() {
+        studyProgressLayout = findViewById(R.id.study_progress_layout)
+        studyProgressBar = findViewById(R.id.study_progress_bar)
+        studyProgressText = findViewById(R.id.study_progress_text)
+        studyProgressLayout?.visibility = if (Prefs.studyProgressBar) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Updates the progress bar shown above the answer buttons.
+     *
+     * @param remaining number of cards still due in the current session
+     */
+    private fun updateStudyProgress(remaining: Int) {
+        val layout = studyProgressLayout ?: return
+        if (!Prefs.studyProgressBar) {
+            layout.visibility = View.GONE
+            return
+        }
+        layout.visibility = View.VISIBLE
+        val done = cardsAnsweredThisSession
+        val total = done + remaining
+        val percent = if (total <= 0) 100 else done * 100 / total
+        studyProgressBar?.progress = percent
+        studyProgressText?.text = getString(R.string.study_progress_format, done, total)
     }
 
     override fun switchTopBarVisibility(visible: Int) {
@@ -1931,6 +2085,9 @@ open class Reviewer :
         const val EXTRA_DECK_ID = "deckId"
 
         private const val KEY_PREVIOUS_CARD_ID = "key_previous_card_id"
+
+        /** Time the answer of a correctly answered multiple choice card stays on screen */
+        private const val AUTO_ANSWER_DELAY_MS = 700L
 
         private const val REQUEST_AUDIO_PERMISSION = 0
         private const val ANIMATION_DURATION = 200

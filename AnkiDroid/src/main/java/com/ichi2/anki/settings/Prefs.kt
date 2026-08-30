@@ -338,6 +338,15 @@ open class PrefsRepository(
     val keepScreenOn by booleanPref(R.string.keep_screen_on_preference, defaultValue = false)
     val hideHardAndEasyButtons by booleanPref(R.string.hide_hard_and_easy_key, defaultValue = false)
 
+    /** Replace the "Show answer" button with A/B/C/D buttons on multiple choice cards */
+    val multipleChoiceButtons by booleanPref(R.string.multiple_choice_buttons_key, defaultValue = true)
+
+    /** Answer a multiple choice card immediately after a correct pick */
+    val multipleChoiceAutoAnswer by booleanPref(R.string.multiple_choice_auto_answer_key, defaultValue = true)
+
+    /** Show the study progress bar above the answer buttons */
+    val studyProgressBar by booleanPref(R.string.study_progress_bar_key, defaultValue = true)
+
     val doubleTapInterval by intPref(R.string.double_tap_timeout_pref_key, defaultValue = 200)
     val newStudyScreenAnswerButtonSize by intPref(R.string.answer_button_size_pref_key, defaultValue = 100)
 
