@@ -48,6 +48,24 @@
             app:min="0"
             app:summaryFormat="@plurals/pref_summ_minutes"/>
     </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pref_cat_reviewing">
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="@string/multiple_choice_buttons_key"
+            android:summary="@string/multiple_choice_pref_summ"
+            android:title="@string/multiple_choice_pref_title" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:dependency="@string/multiple_choice_buttons_key"
+            android:key="@string/multiple_choice_auto_answer_key"
+            android:summary="@string/multiple_choice_auto_answer_pref_summ"
+            android:title="@string/multiple_choice_auto_answer_pref_title" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="@string/study_progress_bar_key"
+            android:summary="@string/study_progress_pref_summ"
+            android:title="@string/study_progress_pref_title" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/pref_cat_advanced">
         <SwitchPreferenceCompat
             android:defaultValue="false"

@@ -52,6 +52,17 @@
     <string name="ease_button_easy" maxLength="41" comment="In the reviewer, in the answer side. Label of the button that used by the user to state that finding the answer to the question was easy.">Easy</string>
     <string name="show_answer_hint_long_press" comment="In the reviewer, hint is shown when touching the show answer button and the user has the long-press accessibility setting enabled">\'%s\' is enabled</string>
 
+    <!-- Multiple choice -->
+    <string name="multiple_choice_correct" comment="In the reviewer, shown after the user picked the right option of a multiple choice question.">Correct</string>
+    <string name="multiple_choice_incorrect" comment="In the reviewer, shown after the user picked a wrong option of a multiple choice question. %s is the label of the correct option, e.g. \'C\'.">Wrong — correct answer: %s</string>
+    <string name="multiple_choice_pref_title" comment="Title of the setting which turns multiple choice answer buttons on or off.">Multiple choice buttons</string>
+    <string name="multiple_choice_pref_summ" comment="Summary of the setting which turns multiple choice answer buttons on or off.">Replace \'Show answer\' with A/B/C/D buttons when a card is a multiple choice question</string>
+    <string name="multiple_choice_auto_answer_pref_title" comment="Title of the setting which automatically grades a multiple choice card after the user picked an option.">Grade multiple choice automatically</string>
+    <string name="multiple_choice_auto_answer_pref_summ" comment="Summary of the setting which automatically grades a multiple choice card after the user picked an option.">A correct pick answers the card with \'Good\' straight away. A wrong pick shows the answer so you can grade it yourself.</string>
+    <string name="study_progress_pref_title" comment="Title of the setting which shows a progress bar in the reviewer.">Show study progress bar</string>
+    <string name="study_progress_pref_summ" comment="Summary of the setting which shows a progress bar in the reviewer.">Show how many of today\'s cards are done above the answer buttons</string>
+    <string name="study_progress_format" comment="In the reviewer progress bar: number of cards answered out of the total for this session. %1$d is the number done, %2$d the total.">%1$d/%2$d</string>
+
     <!-- General -->
     <string name="undo" maxLength="28" comment="When tapping on this text, the last action is undone.">Undo</string>
     <string name="redo" maxLength="28" comment="Menu entry that allows to redo action that was just undone.">Redo</string>
