@@ -26,7 +26,7 @@ jobs:
   build:
     name: Build APK (${{ github.event.inputs.buildType || 'debug' }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # `workflow_dispatch` supplies the choice; a `push` has no inputs, so default to debug.
       BUILD_TYPE: ${{ github.event.inputs.buildType || 'debug' }}
@@ -68,20 +68,15 @@ jobs:
       #          alongside the per-ABI splits. It is signed with the checked-in
       #          tools/fallback-release-keystore.jks unless KEYSTOREPATH & co are set.
       #
-      # Wrapped in a retry, as elsewhere in this repo, so a flaky dependency download
-      # does not fail the whole build.
+      # Not wrapped in a retry: a cold-cache assemble of this project takes well over
+      # half an hour, and restarting it part-way through only guarantees a timeout.
       - name: Assemble APK
-        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
-        with:
-          timeout_minutes: 45
-          retry_wait_seconds: 60
-          max_attempts: 2
-          command: |
-            if [ "$BUILD_TYPE" = "release" ]; then
-              ./gradlew :AnkiDroid:assembleFullRelease -Duniversal-apk=true --daemon
-            else
-              ./gradlew :AnkiDroid:assembleFullDebug --daemon
-            fi
+        run: |
+          if [ "$BUILD_TYPE" = "release" ]; then
+            ./gradlew :AnkiDroid:assembleFullRelease -Duniversal-apk=true --daemon
+          else
+            ./gradlew :AnkiDroid:assembleFullDebug --daemon
+          fi
 
       # Uploads every APK the build produced: the arm64-v8a split and the universal APK
       # (plus the other ABI splits) all live under AnkiDroid/build/outputs/apk/.
