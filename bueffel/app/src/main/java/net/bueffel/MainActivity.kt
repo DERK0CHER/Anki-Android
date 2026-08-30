@@ -12,7 +12,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import net.bueffel.data.DeckStore
-import net.bueffel.importer.QuestionParser
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.ui.DeckListScreen
@@ -75,14 +74,13 @@ private fun BueffelApp(store: DeckStore) {
             BackHandler { screen = Screen.Decks }
             ImportScreen(
                 onCancel = { screen = Screen.Decks },
-                onImport = { name, text ->
-                    val parsed = QuestionParser.parse(text)
-                    if (parsed.questions.isNotEmpty()) {
+                onImport = { name, questions ->
+                    if (questions.isNotEmpty()) {
                         val deck =
                             Deck(
                                 id = System.currentTimeMillis().toString(),
                                 name = name,
-                                cards = parsed.questions.map { Card(it) },
+                                cards = questions.map { Card(it) },
                             )
                         persist(decks + deck)
                     }

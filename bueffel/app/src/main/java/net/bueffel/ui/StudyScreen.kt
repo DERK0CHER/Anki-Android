@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,27 +58,43 @@ fun StudyScreen(
     var round by remember { mutableIntStateOf(0) }
 
     val card = remember(round) { session.current() }
+    val chosen = picked
+
+    fun advance() {
+        val index = picked ?: return
+        val question = session.current()?.question ?: return
+        session.answer(correct = index == question.correctIndex)
+        picked = null
+        round++
+    }
 
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(BueffelColors.Background)
-                .systemBarsPadding()
+                // once an answer is showing the whole screen moves on: the finger is already in
+                // the middle of the screen, so making it travel to a bar at the bottom is a
+                // second act of aiming for no reason
+                .clickable(
+                    enabled = chosen != null,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = { advance() },
+                ).systemBarsPadding()
                 .padding(horizontal = BueffelShape.Gutter),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 32.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Caption(text = "${session.learnedCount} / ${session.total} gelernt", color = BueffelColors.TextSecondary)
-            Text(
-                text = "Schluss",
-                style = MaterialTheme.typography.labelSmall,
-                color = BueffelColors.TextMuted,
-                modifier = Modifier.clickable { onLeave(session.snapshot()) },
-            )
-        }
+        TopBar(
+            progress = session.progress,
+            canUndo = session.canUndo && chosen == null,
+            onUndo = {
+                if (session.undo()) {
+                    picked = null
+                    round++
+                }
+            },
+            onLeave = { onLeave(session.snapshot()) },
+        )
 
         if (card == null) {
             FinishedPanel(total = session.total, onDone = { onFinished(session.snapshot()) })
@@ -94,8 +111,6 @@ fun StudyScreen(
                 style = MaterialTheme.typography.displaySmall,
                 color = BueffelColors.TextPrimary,
             )
-            Spacer(Modifier.height(10.dp))
-            BoxDots(box = card.box)
 
             Spacer(Modifier.height(26.dp))
 
@@ -111,36 +126,85 @@ fun StudyScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        val chosen = picked
-        if (chosen != null) {
-            ContinueBar(
-                correct = chosen == question.correctIndex,
-                correctLabel = question.correctChoice.label,
-                onClick = {
-                    session.answer(correct = chosen == question.correctIndex)
-                    picked = null
-                    round++
-                },
-            )
+        // the strip keeps its height whether or not an answer is showing, so the boxes above
+        // never shift under a finger that is about to tap one
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
+        ) {
+            if (chosen != null) {
+                Verdict(
+                    correct = chosen == question.correctIndex,
+                    correctLabel = question.correctChoice.label,
+                )
+            }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 
-/** How far this question has come: one dot per box it has passed */
+/** Kept clear of the answer boxes so revealing a verdict never moves them */
+private val VERDICT_STRIP_HEIGHT = 76.dp
+
+/** Progress, a way back out, and taking back a mis-tap */
 @Composable
-private fun BoxDots(box: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        repeat(Card.LEARNED_BOX) { index ->
-            Box(
-                modifier =
-                    Modifier
-                        .size(if (index < box) 7.dp else 6.dp)
-                        .clip(CircleShape)
-                        .background(if (index < box) BueffelColors.Correct else BueffelColors.Border),
-            )
+private fun TopBar(
+    progress: Float,
+    canUndo: Boolean,
+    onUndo: () -> Unit,
+    onLeave: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 20.dp, bottom = 26.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            PillAction(text = "Schluss", onClick = onLeave)
+            if (canUndo) {
+                PillAction(text = "Zurück", onClick = onUndo)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(BueffelShape.Pill))
+                    .background(BueffelColors.SurfaceRaised),
+        ) {
+            if (progress > 0f) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(progress)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(BueffelShape.Pill))
+                            .background(BueffelColors.Correct),
+                )
+            }
         }
     }
+}
+
+/** A small round target, big enough to hit without looking */
+@Composable
+private fun PillAction(
+    text: String,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = BueffelColors.TextSecondary,
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(BueffelShape.Pill))
+                .background(BueffelColors.Surface)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+    )
 }
 
 private enum class ChoiceState { Untouched, Correct, Wrong, Dimmed }
@@ -230,31 +294,21 @@ private fun Badge(
     }
 }
 
-/** Says how it went and moves on, on a tap rather than on a timer */
+/** Says how it went. Tapping anywhere on the screen moves on. */
 @Composable
-private fun ContinueBar(
+private fun Verdict(
     correct: Boolean,
     correctLabel: String,
-    onClick: () -> Unit,
 ) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(BueffelShape.Radius))
-                .background(BueffelColors.SurfaceRaised)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 18.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = if (correct) "Richtig" else "Falsch — richtig war $correctLabel",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = if (correct) BueffelColors.Correct else BueffelColors.Wrong,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(4.dp))
-        Caption(text = "Tippen für die nächste Frage")
+        Spacer(Modifier.height(6.dp))
+        Caption(text = "Tippen für weiter")
     }
 }
 

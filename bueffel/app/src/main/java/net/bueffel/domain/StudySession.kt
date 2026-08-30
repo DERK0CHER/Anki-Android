@@ -19,6 +19,9 @@ class StudySession(
     private val queue: ArrayDeque<Card> = ArrayDeque(deck.cards.filterNot { it.isLearned })
     private val learned: MutableList<Card> = deck.cards.filter { it.isLearned }.toMutableList()
 
+    /** The queue and the learned pile as they were before the last answer, for [undo] */
+    private var previous: Pair<List<Card>, List<Card>>? = null
+
     /** Questions still in the rotation */
     val remaining: Int get() = queue.size
 
@@ -30,6 +33,23 @@ class StudySession(
 
     val isFinished: Boolean get() = queue.isEmpty()
 
+    /**
+     * How much of the work is done, 0f..1f.
+     *
+     * Counts boxes rather than finished questions: a set of forty needs a hundred and sixty
+     * right answers, so "questions learned" sits at zero for a long while and tells the learner
+     * nothing. Boxes move on every single correct answer.
+     */
+    val progress: Float
+        get() {
+            if (total == 0) return 1f
+            val filled = (queue + learned).sumOf { it.box }
+            return (filled.toFloat() / (total * Card.LEARNED_BOX)).coerceIn(0f, 1f)
+        }
+
+    /** Whether the last answer can still be taken back */
+    val canUndo: Boolean get() = previous != null
+
     /** The question to ask now, or `null` once everything is learned */
     fun current(): Card? = queue.firstOrNull()
 
@@ -39,7 +59,9 @@ class StudySession(
      * @return the card in its new state, or `null` if there was nothing to answer
      */
     fun answer(correct: Boolean): Card? {
-        val card = queue.removeFirstOrNull() ?: return null
+        if (queue.isEmpty()) return null
+        previous = queue.toList() to learned.toList()
+        val card = queue.removeFirst()
         val updated = card.answered(correct)
         if (updated.isLearned) {
             learned += updated
@@ -47,6 +69,21 @@ class StudySession(
             queue.add(gapFor(updated.box).coerceAtMost(queue.size), updated)
         }
         return updated
+    }
+
+    /**
+     * Takes back the last answer, for the mis-tap that every list of buttons produces.
+     *
+     * @return true if there was something to take back
+     */
+    fun undo(): Boolean {
+        val (queueBefore, learnedBefore) = previous ?: return false
+        queue.clear()
+        queue.addAll(queueBefore)
+        learned.clear()
+        learned.addAll(learnedBefore)
+        previous = null
+        return true
     }
 
     /** Everything the session knows about, for writing back to storage */

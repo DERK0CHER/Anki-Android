@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,28 +24,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import net.bueffel.importer.QuestionParser
+import net.bueffel.model.Question
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelShape
 
 /**
- * Paste questions in.
+ * Getting questions in, without a keyboard.
  *
- * The questions are written elsewhere - a chat with a language model is the expected source -
- * so all this screen has to do is take the text and say honestly how much of it it understood.
+ * The questions are written in a chat with a language model, which means the text is already on
+ * the clipboard. So this screen hands out the prompt to paste into that chat, then reads the
+ * answer back off the clipboard. Nobody types a question set on a phone, and the paragraph-sized
+ * text box this screen used to have could not scroll inside a scrolling page, so it clipped.
  */
 @Composable
 fun ImportScreen(
     onCancel: () -> Unit,
-    onImport: (name: String, text: String) -> Unit,
+    onImport: (name: String, questions: List<Question>) -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
+    var parsed by remember { mutableStateOf<QuestionParser.ImportResult?>(null) }
+    var promptCopied by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
-    var text by remember { mutableStateOf("") }
 
-    val preview = remember(text) { QuestionParser.parse(text) }
-    val found = preview.questions.size
+    val found = parsed?.questions.orEmpty()
 
     Column(
         modifier =
@@ -55,8 +59,8 @@ fun ImportScreen(
                 .background(BueffelColors.Background)
                 .systemBarsPadding()
                 .imePadding()
-                .padding(horizontal = BueffelShape.Gutter)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = BueffelShape.Gutter),
     ) {
         Spacer(Modifier.height(28.dp))
         Text(
@@ -66,98 +70,133 @@ fun ImportScreen(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text =
-                "Frage, darunter die Antworten als A) B) C), darunter eine Zeile " +
-                    "„Lösung: B\". Mehrere Fragen mit einer Leerzeile trennen.",
+            text = "Lass dir die Fragen von einer KI schreiben. Den Prompt dafür gibt es hier.",
             style = MaterialTheme.typography.bodyLarge,
             color = BueffelColors.TextSecondary,
         )
 
-        Spacer(Modifier.height(28.dp))
-        Caption(text = "NAME")
-        Spacer(Modifier.height(8.dp))
-        InputBox(
-            value = name,
-            onValueChange = { name = it },
-            placeholder = "z. B. Theorieprüfung",
-            minHeight = 56.dp,
-            singleLine = true,
-        )
-
-        Spacer(Modifier.height(20.dp))
-        Caption(text = "FRAGEN")
-        Spacer(Modifier.height(8.dp))
-        InputBox(
-            value = text,
-            onValueChange = { text = it },
-            placeholder = "Hier den Text einfügen",
-            minHeight = 220.dp,
-            singleLine = false,
-        )
-
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = importSummary(found, preview.skipped),
-            style = MaterialTheme.typography.bodyMedium,
-            color =
-                when {
-                    found > 0 -> BueffelColors.Correct
-                    text.isBlank() -> BueffelColors.TextMuted
-                    else -> BueffelColors.Wrong
-                },
+        Spacer(Modifier.height(32.dp))
+        Step(number = "1", text = "Prompt kopieren, in einen KI-Chat einfügen")
+        Spacer(Modifier.height(10.dp))
+        BueffelButton(
+            text = if (promptCopied) "Prompt kopiert ✓" else "Prompt kopieren",
+            onClick = {
+                clipboard.setText(AnnotatedString(AI_PROMPT))
+                promptCopied = true
+            },
+            filled = false,
         )
 
         Spacer(Modifier.height(24.dp))
+        Step(number = "2", text = "Antwort der KI kopieren, hier einlesen")
+        Spacer(Modifier.height(10.dp))
         BueffelButton(
-            text = if (found > 0) "$found Fragen übernehmen" else "Übernehmen",
-            onClick = { onImport(name.ifBlank { "Fragen" }, text) },
-            enabled = found > 0,
+            text = "Aus Zwischenablage einlesen",
+            onClick = { parsed = QuestionParser.parse(clipboard.getText()?.text.orEmpty()) },
         )
+
+        parsed?.let { result ->
+            Spacer(Modifier.height(24.dp))
+            ResultPanel(result)
+        }
+
+        if (found.isNotEmpty()) {
+            Spacer(Modifier.height(20.dp))
+            Caption(text = "NAME")
+            Spacer(Modifier.height(8.dp))
+            NameField(value = name, onValueChange = { name = it })
+            Spacer(Modifier.height(20.dp))
+            BueffelButton(
+                text = "${found.size} Fragen übernehmen",
+                onClick = { onImport(name.ifBlank { defaultName(found) }, found) },
+            )
+        }
+
         Spacer(Modifier.height(12.dp))
         BueffelButton(text = "Abbrechen", onClick = onCancel, filled = false)
         Spacer(Modifier.height(28.dp))
     }
 }
 
-private fun importSummary(
-    found: Int,
-    skipped: Int,
-): String =
-    when {
-        found == 0 && skipped == 0 -> "Noch nichts eingefügt."
-        found == 0 -> "Nichts erkannt. Fehlt vielleicht die Lösungszeile?"
-        skipped == 0 -> "$found Fragen erkannt."
-        else -> "$found Fragen erkannt, $skipped Blöcke übersprungen."
-    }
-
-/** A text field drawn the way the rest of the app is drawn */
+/** A numbered step, so a two-part flow reads as two parts */
 @Composable
-private fun InputBox(
+private fun Step(
+    number: String,
+    text: String,
+) {
+    Text(
+        text = "$number   $text",
+        style = MaterialTheme.typography.titleMedium,
+        color = BueffelColors.TextPrimary,
+    )
+}
+
+/** What the clipboard turned out to contain */
+@Composable
+private fun ResultPanel(result: QuestionParser.ImportResult) {
+    val found = result.questions.size
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(BueffelShape.Radius))
+                .background(BueffelColors.Surface)
+                .padding(20.dp),
+    ) {
+        Text(
+            text =
+                when {
+                    found == 0 -> "Nichts erkannt"
+                    result.skipped == 0 -> "$found Fragen erkannt"
+                    else -> "$found Fragen erkannt, ${result.skipped} übersprungen"
+                },
+            style = MaterialTheme.typography.titleLarge,
+            color = if (found == 0) BueffelColors.Wrong else BueffelColors.Correct,
+        )
+        Spacer(Modifier.height(10.dp))
+        if (found == 0) {
+            Text(
+                text =
+                    "Liegt der Text wirklich in der Zwischenablage? Jede Frage braucht " +
+                        "Antworten als A) B) C) und darunter eine Zeile „Lösung: B\".",
+                style = MaterialTheme.typography.bodyMedium,
+                color = BueffelColors.TextSecondary,
+            )
+        } else {
+            Caption(text = "ERSTE FRAGE")
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = result.questions.first().prompt,
+                style = MaterialTheme.typography.bodyMedium,
+                color = BueffelColors.TextSecondary,
+            )
+        }
+    }
+}
+
+/** One line only: a single line stays usable with the keyboard up */
+@Composable
+private fun NameField(
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String,
-    minHeight: Dp,
-    singleLine: Boolean,
 ) {
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        singleLine = singleLine,
+        singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = BueffelColors.TextPrimary),
         cursorBrush = SolidColor(BueffelColors.TextPrimary),
         modifier =
             Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = minHeight)
                 .clip(RoundedCornerShape(BueffelShape.Radius))
                 .background(BueffelColors.Surface)
-                .padding(16.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
         decorationBox = { inner ->
-            // a Box so the placeholder sits behind the text rather than above it
             Box {
                 if (value.isEmpty()) {
                     Text(
-                        text = placeholder,
+                        text = "leer lassen für automatisch",
                         style = MaterialTheme.typography.bodyLarge,
                         color = BueffelColors.TextMuted,
                     )
@@ -167,3 +206,34 @@ private fun InputBox(
         },
     )
 }
+
+/** Names a set after its first question, so nothing ends up called just "Fragen" */
+private fun defaultName(questions: List<Question>): String {
+    val first =
+        questions
+            .firstOrNull()
+            ?.prompt
+            .orEmpty()
+            .trim()
+    if (first.isEmpty()) return "Fragen"
+    return first.take(28).trimEnd() + if (first.length > 28) "…" else ""
+}
+
+/** Handed to the user's chat of choice, so the answer comes back in a shape the parser reads */
+private const val AI_PROMPT =
+    """Schreibe mir 20 Multiple-Choice-Fragen zum Thema: <HIER DEIN THEMA>
+
+Halte dich genau an dieses Format, mit einer Leerzeile zwischen den Fragen:
+
+Worum geht es hier?
+A) Erste Antwort
+B) Zweite Antwort
+C) Dritte Antwort
+D) Vierte Antwort
+Lösung: B
+
+Regeln:
+- genau eine richtige Antwort pro Frage
+- drei oder vier Antwortmöglichkeiten
+- die Fragen nicht durchnummerieren
+- keine Erklärungen, keine Überschriften, kein Markdown, keine Sternchen"""
