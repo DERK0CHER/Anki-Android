@@ -73,5 +73,14 @@
     <color name="idle_divider_color">#C7C7C7</color>
     <color name="drag_divider_color">#1A90FF</color>
     <color name="divider_handle_color">#4D4D4D</color>
+
+    <!-- Multiple choice option boxes. Translucent so the theme's own text colour stays
+         readable on both the light and the dark background. -->
+    <color name="multiple_choice_option_fill">#14808080</color>
+    <color name="multiple_choice_option_stroke">#40808080</color>
+    <color name="multiple_choice_option_correct_fill">#4D4CAF50</color>
+    <color name="multiple_choice_option_correct_stroke">#CC4CAF50</color>
+    <color name="multiple_choice_option_wrong_fill">#4DE53935</color>
+    <color name="multiple_choice_option_wrong_stroke">#CCE53935</color>
 </resources>
 

@@ -77,6 +77,79 @@
             android:gravity="center"/>
     </LinearLayout>
 
+    <!-- One box per multiple choice option, filled in by Reviewer.showMultipleChoiceOptions -->
+    <LinearLayout
+        android:id="@+id/multiple_choice_options"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/side_margin"
+        android:paddingEnd="@dimen/side_margin"
+        android:paddingBottom="6dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:id="@+id/multiple_choice_option_a"
+            style="@style/MultipleChoiceOption">
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_a_label"
+                style="@style/MultipleChoiceOptionLabel"
+                tools:text="A" />
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_a_text"
+                style="@style/MultipleChoiceOptionText"
+                tools:text="Option A" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/multiple_choice_option_b"
+            style="@style/MultipleChoiceOption">
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_b_label"
+                style="@style/MultipleChoiceOptionLabel"
+                tools:text="B" />
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_b_text"
+                style="@style/MultipleChoiceOptionText"
+                tools:text="Option B" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/multiple_choice_option_c"
+            style="@style/MultipleChoiceOption">
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_c_label"
+                style="@style/MultipleChoiceOptionLabel"
+                tools:text="C" />
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_c_text"
+                style="@style/MultipleChoiceOptionText"
+                tools:text="Option C" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/multiple_choice_option_d"
+            style="@style/MultipleChoiceOption">
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_d_label"
+                style="@style/MultipleChoiceOptionLabel"
+                tools:text="D" />
+
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_option_d_text"
+                style="@style/MultipleChoiceOptionText"
+                tools:text="Option D" />
+        </LinearLayout>
+    </LinearLayout>
+
     <FrameLayout
         android:id="@+id/answer_options_layout"
         android:layout_width="match_parent"
@@ -186,94 +259,25 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Multiple choice answer buttons: replace "Show answer" for multiple choice cards -->
-        <LinearLayout
-            android:id="@+id/multiple_choice_buttons"
+        <!-- Shown instead of the ease buttons after an option was picked -->
+        <FrameLayout
+            android:id="@+id/multiple_choice_continue"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="?minTouchTargetSize"
+            android:focusable="true"
             android:visibility="gone"
-            android:orientation="horizontal">
+            android:background="?attr/hardButtonRef"
+            android:theme="@style/HardButton">
 
-            <FrameLayout
-                android:id="@+id/multiple_choice_a"
-                android:layout_width="0dip"
-                android:layout_height="?minTouchTargetSize"
-                android:layout_weight="1"
-                android:focusable="true"
-                android:background="?attr/hardButtonRef"
-                android:theme="@style/HardButton">
-
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/multiple_choice_a_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:textColor="?attr/answerButtonTextColor"
-                    android:textStyle="bold"
-                    tools:text="A"
-                    style="@style/FooterButton" />
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/multiple_choice_b"
-                android:layout_width="0dip"
-                android:layout_height="?minTouchTargetSize"
-                android:layout_weight="1"
-                android:focusable="true"
-                android:background="?attr/hardButtonRef"
-                android:theme="@style/HardButton">
-
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/multiple_choice_b_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:textColor="?attr/answerButtonTextColor"
-                    android:textStyle="bold"
-                    tools:text="B"
-                    style="@style/FooterButton" />
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/multiple_choice_c"
-                android:layout_width="0dip"
-                android:layout_height="?minTouchTargetSize"
-                android:layout_weight="1"
-                android:focusable="true"
-                android:background="?attr/hardButtonRef"
-                android:theme="@style/HardButton">
-
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/multiple_choice_c_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:textColor="?attr/answerButtonTextColor"
-                    android:textStyle="bold"
-                    tools:text="C"
-                    style="@style/FooterButton" />
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/multiple_choice_d"
-                android:layout_width="0dip"
-                android:layout_height="?minTouchTargetSize"
-                android:layout_weight="1"
-                android:focusable="true"
-                android:background="?attr/hardButtonRef"
-                android:theme="@style/HardButton">
-
-                <com.ichi2.ui.FixedTextView
-                    android:id="@+id/multiple_choice_d_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:textColor="?attr/answerButtonTextColor"
-                    android:textStyle="bold"
-                    tools:text="D"
-                    style="@style/FooterButton" />
-            </FrameLayout>
-        </LinearLayout>
+            <com.ichi2.ui.FixedTextView
+                android:id="@+id/multiple_choice_continue_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textColor="?attr/answerButtonTextColor"
+                android:text="@string/multiple_choice_continue"
+                style="@style/FooterButton" />
+        </FrameLayout>
 
         <FrameLayout
             android:id="@+id/flashcard_layout_flip"

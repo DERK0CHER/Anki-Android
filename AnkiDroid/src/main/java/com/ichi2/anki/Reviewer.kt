@@ -198,6 +198,18 @@ open class Reviewer :
     private var multipleChoiceButtonsLayout: LinearLayout? = null
     private var multipleChoiceButtons: List<View> = emptyList()
     private var multipleChoiceLabels: List<TextView> = emptyList()
+    private var multipleChoiceTexts: List<TextView> = emptyList()
+
+    /** Bar which replaces the ease buttons once an option was picked */
+    private var multipleChoiceContinue: View? = null
+    private val multipleChoiceContinueText: TextView?
+        get() = multipleChoiceContinue?.findViewById(R.id.multiple_choice_continue_text)
+
+    /** The ease buttons, hidden while a multiple choice card is being graded automatically */
+    private var easeButtonsBar: View? = null
+
+    /** The option the user picked on the current card, `null` before they picked one */
+    private var pickedOptionIndex: Int? = null
 
     /** The multiple choice question of [currentCard], or `null` if it isn't one */
     private var currentMultipleChoice: MultipleChoiceQuestion? = null
@@ -1231,8 +1243,15 @@ open class Reviewer :
 
     override fun displayAnswerBottomBar() {
         super.displayAnswerBottomBar()
-        // the A/B/C/D buttons only belong on the question side
-        hideMultipleChoiceButtons()
+        if (pickedOptionIndex == null) {
+            // the answer was revealed without picking an option, e.g. by a gesture
+            hideMultipleChoiceButtons()
+        } else if (Prefs.multipleChoiceAutoAnswer) {
+            // the boxes stay up, coloured, and 'continue' takes the place of the ease buttons:
+            // the card is graded from the pick, so the intervals are just noise here
+            easeButtonsBar?.visibility = View.GONE
+            multipleChoiceContinue?.visibility = View.VISIBLE
+        }
         // Set correct label and background resource for each button
         // Note that it's necessary to set the resource dynamically as the ease2 / ease3 buttons
         // (which libanki expects ease to be 2 and 3) can either be hard, good, or easy - depending on num buttons shown
@@ -1502,19 +1521,24 @@ open class Reviewer :
     // region Multiple choice
 
     private fun initMultipleChoiceButtons() {
-        multipleChoiceButtonsLayout = findViewById(R.id.multiple_choice_buttons)
+        multipleChoiceButtonsLayout = findViewById(R.id.multiple_choice_options)
         val ids =
             listOf(
-                R.id.multiple_choice_a to R.id.multiple_choice_a_text,
-                R.id.multiple_choice_b to R.id.multiple_choice_b_text,
-                R.id.multiple_choice_c to R.id.multiple_choice_c_text,
-                R.id.multiple_choice_d to R.id.multiple_choice_d_text,
+                Triple(R.id.multiple_choice_option_a, R.id.multiple_choice_option_a_label, R.id.multiple_choice_option_a_text),
+                Triple(R.id.multiple_choice_option_b, R.id.multiple_choice_option_b_label, R.id.multiple_choice_option_b_text),
+                Triple(R.id.multiple_choice_option_c, R.id.multiple_choice_option_c_label, R.id.multiple_choice_option_c_text),
+                Triple(R.id.multiple_choice_option_d, R.id.multiple_choice_option_d_label, R.id.multiple_choice_option_d_text),
             )
         multipleChoiceButtons = ids.map { findViewById<View>(it.first) }
         multipleChoiceLabels = ids.map { findViewById<TextView>(it.second) }
+        multipleChoiceTexts = ids.map { findViewById<TextView>(it.third) }
         multipleChoiceButtons.forEachIndexed { index, button ->
             button.setOnClickListener { onMultipleChoiceSelected(index) }
         }
+
+        multipleChoiceContinue = findViewById(R.id.multiple_choice_continue)
+        multipleChoiceContinue?.setOnClickListener { onMultipleChoiceContinue() }
+        easeButtonsBar = findViewById(R.id.ease_buttons)
     }
 
     /**
@@ -1555,24 +1579,48 @@ open class Reviewer :
 
     private fun showMultipleChoiceButtons(question: MultipleChoiceQuestion) {
         val layout = multipleChoiceButtonsLayout ?: return
+        pickedOptionIndex = null
         multipleChoiceButtons.forEachIndexed { index, button ->
             val option = question.options.getOrNull(index)
             if (option == null) {
                 button.visibility = View.GONE
             } else {
                 button.visibility = View.VISIBLE
-                button.contentDescription = option.text
+                button.isEnabled = true
+                button.contentDescription = "${option.label}: ${option.text}"
+                button.setBackgroundResource(R.drawable.multiple_choice_option)
                 multipleChoiceLabels[index].text = option.label
+                multipleChoiceTexts[index].text = option.text
             }
         }
         layout.visibility = View.VISIBLE
-        // the A/B/C/D bar takes the place of "Show answer"
+        multipleChoiceContinue?.visibility = View.GONE
+        // tapping an option is the action, so "Show answer" has nothing left to do
         flipCardLayout?.visibility = View.GONE
         flipCardLayout?.isClickable = false
     }
 
+    /** Colours the picked and the correct box, and stops further picking */
+    private fun markMultipleChoiceResult(
+        question: MultipleChoiceQuestion,
+        pickedIndex: Int,
+    ) {
+        multipleChoiceButtons.forEachIndexed { index, button ->
+            button.isEnabled = false
+            val background =
+                when (index) {
+                    question.correctIndex -> R.drawable.multiple_choice_option_correct
+                    pickedIndex -> R.drawable.multiple_choice_option_wrong
+                    else -> R.drawable.multiple_choice_option
+                }
+            button.setBackgroundResource(background)
+        }
+    }
+
     private fun hideMultipleChoiceButtons() {
         multipleChoiceButtonsLayout?.visibility = View.GONE
+        multipleChoiceContinue?.visibility = View.GONE
+        pickedOptionIndex = null
     }
 
     /** Reveals the answer, tells the user whether they were right, and grades the card */
@@ -1587,31 +1635,36 @@ open class Reviewer :
         displayCardAnswer()
 
         val streak = drill.record(card.id, isCorrect)
-        if (isCorrect) {
-            // 'Good' advances the card one learning step; once it has taken every step it
-            // graduates, which is the streak reaching MultipleChoiceDrill.requiredStreak
-            val message =
-                if (drill.isLearned(card.id)) {
-                    getString(R.string.multiple_choice_learned)
-                } else {
-                    getString(R.string.multiple_choice_correct_streak, streak, drill.requiredStreak)
-                }
-            showSnackbar(message, Snackbar.LENGTH_SHORT)
-            if (Prefs.multipleChoiceAutoAnswer) {
-                // give the answer a moment to render before moving on
-                executeFunctionWithDelay(AUTO_ANSWER_DELAY_MS) { answerCard(Rating.GOOD) }
+        pickedOptionIndex = index
+        markMultipleChoiceResult(question, index)
+
+        val message =
+            when {
+                !isCorrect -> getString(R.string.multiple_choice_incorrect, question.correctOption.label)
+                drill.isLearned(card.id) -> getString(R.string.multiple_choice_learned)
+                else -> getString(R.string.multiple_choice_correct_streak, streak, drill.requiredStreak)
             }
+        if (Prefs.multipleChoiceAutoAnswer) {
+            // Nothing happens until the user taps 'continue': they decide how long to look at
+            // the answer, and the ease buttons stay out of the way (see displayAnswerBottomBar)
+            multipleChoiceContinueText?.text = message
+            multipleChoiceContinue?.visibility = View.VISIBLE
+            easeButtonsBar?.visibility = View.GONE
         } else {
-            showSnackbar(
-                getString(R.string.multiple_choice_incorrect, question.correctOption.label),
-                Snackbar.LENGTH_LONG,
-            )
-            if (Prefs.multipleChoiceAutoAnswer) {
-                // 'Again' puts the card back on the first learning step, so it has to be
-                // answered correctly from scratch. The longer delay is there to read the answer.
-                executeFunctionWithDelay(WRONG_ANSWER_DELAY_MS) { answerCard(Rating.AGAIN) }
-            }
+            // grading by hand: the usual ease buttons appear, so only report the outcome
+            showSnackbar(message, Snackbar.LENGTH_LONG)
         }
+    }
+
+    /** Grades the card from the option the user picked, and moves on */
+    private fun onMultipleChoiceContinue() {
+        val question = currentMultipleChoice ?: return
+        val picked = pickedOptionIndex ?: return
+        pickedOptionIndex = null
+        multipleChoiceContinue?.visibility = View.GONE
+        // 'Good' takes the card one learning step further; 'Again' puts it back on the first,
+        // so it has to be answered correctly from scratch
+        answerCard(if (picked == question.correctIndex) Rating.GOOD else Rating.AGAIN)
     }
 
     /**
@@ -2147,17 +2200,6 @@ open class Reviewer :
         const val EXTRA_DECK_ID = "deckId"
 
         private const val KEY_PREVIOUS_CARD_ID = "key_previous_card_id"
-
-        /** Time the answer of a correctly answered multiple choice card stays on screen */
-        private const val AUTO_ANSWER_DELAY_MS = 700L
-
-        /**
-         * Time the answer of a wrongly answered multiple choice card stays on screen.
-         *
-         * Longer than [AUTO_ANSWER_DELAY_MS]: this is the moment the user actually has to read
-         * the answer they got wrong.
-         */
-        private const val WRONG_ANSWER_DELAY_MS = 3000L
 
         private const val REQUEST_AUDIO_PERMISSION = 0
         private const val ANIMATION_DURATION = 200
