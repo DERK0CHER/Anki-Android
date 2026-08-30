@@ -1,0 +1,80 @@
+name: Build Büffel
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+      - 'claude/**'
+    paths:
+      - 'bueffel/**'
+      - '.github/workflows/build_bueffel.yml'
+
+permissions:
+  # `contents: write` so the build can publish the APK as a release asset
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Büffel APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: bueffel
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Same JDK the AnkiDroid build in this repository uses
+      - name: Configure JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: "jetbrains"
+          java-version: "21"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        timeout-minutes: 10
+        with:
+          cache-provider: basic
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          build-root-directory: bueffel
+
+      - name: Assemble
+        run: ./gradlew :app:assembleDebug :app:assembleRelease
+
+      - name: List produced APKs
+        if: always()
+        run: find app/build/outputs/apk -name '*.apk' -exec ls -la {} + || true
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bueffel-apk
+          path: bueffel/app/build/outputs/apk/**/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      # A plain .apk on a stable URL, so it can be tapped straight from a phone browser
+      - name: Publish as a rolling release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="bueffel-latest"
+          notes="Automatic Büffel build of ${GITHUB_SHA:0:7}.
+
+          Install the release APK. It carries the application id net.bueffel and is
+          unrelated to AnkiDroid, so it sits alongside anything already installed."
+          gh release delete "$tag" --yes --cleanup-tag || true
+          gh release create "$tag" \
+            --title "Büffel — latest build" \
+            --notes "$notes" \
+            --prerelease \
+            $(find app/build/outputs/apk -name '*.apk' | sort)

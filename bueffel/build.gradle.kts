@@ -1,0 +1,7 @@
+// Versions are deliberately the same as the AnkiDroid build in this repository:
+// that combination is known to resolve and compile in CI here.
+plugins {
+    id("com.android.application") version "9.0.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.21" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.3.21" apply false
+}
