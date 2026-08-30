@@ -23,8 +23,10 @@ object BueffelColors {
     val Border = Color(0xFF232323)
 
     val TextPrimary = Color(0xFFFFFFFF)
-    val TextSecondary = Color(0xFF8A8A8E)
-    val TextMuted = Color(0xFF5A5A5E)
+
+    /** Body copy: light enough to read at length against black */
+    val TextSecondary = Color(0xFFB4B4B8)
+    val TextMuted = Color(0xFF7A7A7E)
 
     val Correct = Color(0xFF32D583)
     val CorrectSurface = Color(0xFF0E1F16)
@@ -34,8 +36,11 @@ object BueffelColors {
 
 /** Radii and spacing, in one place so every surface agrees */
 object BueffelShape {
-    /** Panels and answer boxes: generous, in the spirit of the reference screens */
+    /** Panels and answer boxes */
     val Radius = 24.dp
+
+    /** Buttons are fully round, as on the reference screens */
+    val Pill = 999.dp
     val Gutter = 24.dp
     val Gap = 12.dp
 }
@@ -60,10 +65,14 @@ private val BueffelColorScheme =
  */
 private val BueffelTypography =
     Typography(
-        displayLarge = TextStyle(fontSize = 56.sp, lineHeight = 58.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp),
-        displaySmall = TextStyle(fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp),
+        // Screen titles are set very large and very tight, the way the reference screens do it
+        displayLarge = TextStyle(fontSize = 64.sp, lineHeight = 64.sp, fontWeight = FontWeight.Bold, letterSpacing = (-3).sp),
+        displayMedium = TextStyle(fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp),
+        // A question is long prose, so it sits a step below a title
+        displaySmall = TextStyle(fontSize = 30.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp),
+        titleLarge = TextStyle(fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
         titleMedium = TextStyle(fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
-        bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 26.sp, fontWeight = FontWeight.Normal),
+        bodyLarge = TextStyle(fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Normal),
         bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal),
         labelLarge = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
         labelSmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),

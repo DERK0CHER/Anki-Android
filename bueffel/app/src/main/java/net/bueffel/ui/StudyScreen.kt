@@ -32,27 +32,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import net.bueffel.model.Question
-import net.bueffel.model.SampleQuestions
+import net.bueffel.domain.StudySession
+import net.bueffel.model.Card
+import net.bueffel.model.Deck
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelShape
-import net.bueffel.ui.theme.BueffelTheme
 
 /**
  * The study loop: a question, one box per answer, and nothing else on screen.
  *
- * Picking a box reveals the outcome immediately, and the screen then waits. Nothing advances on
- * a timer, so how long the answer stays up is the reader's decision.
+ * Picking a box reveals the outcome at once and the screen then waits. Nothing advances on a
+ * timer, so how long the answer stays up is the reader's decision.
  */
 @Composable
-fun StudyScreen(questions: List<Question> = SampleQuestions.all) {
-    var index by remember { mutableIntStateOf(0) }
+fun StudyScreen(
+    deck: Deck,
+    onFinished: (List<Card>) -> Unit,
+    onLeave: (List<Card>) -> Unit,
+) {
+    val session = remember(deck.id) { StudySession(deck) }
     var picked by remember { mutableStateOf<Int?>(null) }
-    var solved by remember { mutableIntStateOf(0) }
+    // bumped after each answer so the screen recomposes off the session's new state
+    var round by remember { mutableIntStateOf(0) }
 
-    val question = questions[index % questions.size]
+    val card = remember(round) { session.current() }
 
     Column(
         modifier =
@@ -62,61 +66,83 @@ fun StudyScreen(questions: List<Question> = SampleQuestions.all) {
                 .systemBarsPadding()
                 .padding(horizontal = BueffelShape.Gutter),
     ) {
-        RunCounter(
-            position = (index % questions.size) + 1,
-            total = questions.size,
-            solved = solved,
-            modifier = Modifier.padding(top = 24.dp, bottom = 36.dp),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 32.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Caption(text = "${session.learnedCount} / ${session.total} gelernt", color = BueffelColors.TextSecondary)
+            Text(
+                text = "Schluss",
+                style = MaterialTheme.typography.labelSmall,
+                color = BueffelColors.TextMuted,
+                modifier = Modifier.clickable { onLeave(session.snapshot()) },
+            )
+        }
+
+        if (card == null) {
+            FinishedPanel(total = session.total, onDone = { onFinished(session.snapshot()) })
+            return@Column
+        }
+
+        val question = card.question
 
         Column(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
         ) {
             Text(
                 text = question.prompt,
                 style = MaterialTheme.typography.displaySmall,
                 color = BueffelColors.TextPrimary,
             )
+            Spacer(Modifier.height(10.dp))
+            BoxDots(box = card.box)
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(26.dp))
 
-            question.choices.forEachIndexed { choiceIndex, choice ->
+            question.choices.forEachIndexed { index, choice ->
                 ChoiceBox(
                     label = choice.label,
                     text = choice.text,
-                    state = choiceState(choiceIndex, picked, question.correctIndex),
-                    onClick = {
-                        if (picked == null) {
-                            picked = choiceIndex
-                            if (choiceIndex == question.correctIndex) solved++
-                        }
-                    },
+                    state = choiceState(index, picked, question.correctIndex),
+                    onClick = { if (picked == null) picked = index },
                 )
                 Spacer(Modifier.height(BueffelShape.Gap))
             }
-
             Spacer(Modifier.height(12.dp))
         }
 
-        if (picked != null) {
+        val chosen = picked
+        if (chosen != null) {
             ContinueBar(
-                correct = picked == question.correctIndex,
+                correct = chosen == question.correctIndex,
                 correctLabel = question.correctChoice.label,
                 onClick = {
+                    session.answer(correct = chosen == question.correctIndex)
                     picked = null
-                    index++
+                    round++
                 },
             )
         }
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
     }
 }
 
-/** How a single box should look right now */
+/** How far this question has come: one dot per box it has passed */
+@Composable
+private fun BoxDots(box: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        repeat(Card.LEARNED_BOX) { index ->
+            Box(
+                modifier =
+                    Modifier
+                        .size(if (index < box) 7.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(if (index < box) BueffelColors.Correct else BueffelColors.Border),
+            )
+        }
+    }
+}
+
 private enum class ChoiceState { Untouched, Correct, Wrong, Dimmed }
 
 private fun choiceState(
@@ -132,10 +158,8 @@ private fun choiceState(
     }
 
 /**
- * One answer, as a box carrying its own text.
- *
- * The whole box is the target rather than a letter in a footer, so the thing being chosen and
- * the thing being tapped are the same object.
+ * One answer, as a box carrying its own text: the thing being chosen and the thing being
+ * tapped are the same object.
  */
 @Composable
 private fun ChoiceBox(
@@ -146,23 +170,17 @@ private fun ChoiceBox(
 ) {
     val fill =
         when (state) {
-            ChoiceState.Untouched -> BueffelColors.Surface
             ChoiceState.Correct -> BueffelColors.CorrectSurface
             ChoiceState.Wrong -> BueffelColors.WrongSurface
-            ChoiceState.Dimmed -> BueffelColors.Surface
+            else -> BueffelColors.Surface
         }
     val stroke =
         when (state) {
-            ChoiceState.Untouched -> BueffelColors.Border
             ChoiceState.Correct -> BueffelColors.Correct
             ChoiceState.Wrong -> BueffelColors.Wrong
-            ChoiceState.Dimmed -> BueffelColors.Border
+            else -> BueffelColors.Border
         }
-    val textColor =
-        when (state) {
-            ChoiceState.Dimmed -> BueffelColors.TextMuted
-            else -> BueffelColors.TextPrimary
-        }
+    val textColor = if (state == ChoiceState.Dimmed) BueffelColors.TextMuted else BueffelColors.TextPrimary
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -206,17 +224,9 @@ private fun Badge(
         }
     Box(
         contentAlignment = Alignment.Center,
-        modifier =
-            Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(background),
+        modifier = Modifier.size(30.dp).clip(CircleShape).background(background),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = foreground,
-        )
+        Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
     }
 }
 
@@ -227,9 +237,6 @@ private fun ContinueBar(
     correctLabel: String,
     onClick: () -> Unit,
 ) {
-    val tint = if (correct) BueffelColors.Correct else BueffelColors.Wrong
-    val message = if (correct) "Richtig" else "Falsch — richtig war $correctLabel"
-
     Column(
         modifier =
             Modifier
@@ -241,49 +248,36 @@ private fun ContinueBar(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = message,
+            text = if (correct) "Richtig" else "Falsch — richtig war $correctLabel",
             style = MaterialTheme.typography.titleMedium,
-            color = tint,
+            color = if (correct) BueffelColors.Correct else BueffelColors.Wrong,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(4.dp))
-        Text(
-            text = "Tippen für die nächste Frage",
-            style = MaterialTheme.typography.labelSmall,
-            color = BueffelColors.TextMuted,
-        )
+        Caption(text = "Tippen für die nächste Frage")
     }
 }
 
-/** "1 / 5" in the corner, the way the reference screens count a run */
+/** Shown once every question has reached the last box */
 @Composable
-private fun RunCounter(
-    position: Int,
+private fun FinishedPanel(
     total: Int,
-    solved: Int,
-    modifier: Modifier = Modifier,
+    onDone: () -> Unit,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "$position / $total",
-            style = MaterialTheme.typography.labelSmall,
+            text = "durch",
+            style = MaterialTheme.typography.displayLarge,
+            color = BueffelColors.TextPrimary,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Alle $total Fragen sitzen — jede viermal hintereinander richtig.",
+            style = MaterialTheme.typography.bodyLarge,
             color = BueffelColors.TextSecondary,
         )
-        Text(
-            text = "$solved richtig",
-            style = MaterialTheme.typography.labelSmall,
-            color = BueffelColors.TextMuted,
-        )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF0B0B0F)
-@Composable
-private fun StudyScreenPreview() {
-    BueffelTheme {
-        StudyScreen()
+        Spacer(Modifier.weight(1f))
+        BueffelButton(text = "Fertig", onClick = onDone)
+        Spacer(Modifier.height(20.dp))
     }
 }
