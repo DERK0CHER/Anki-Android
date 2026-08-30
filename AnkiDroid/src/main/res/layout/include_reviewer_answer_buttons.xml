@@ -210,7 +210,7 @@
                     android:layout_gravity="center"
                     android:textColor="?attr/answerButtonTextColor"
                     android:textStyle="bold"
-                    android:text="A"
+                    tools:text="A"
                     style="@style/FooterButton" />
             </FrameLayout>
 
@@ -230,7 +230,7 @@
                     android:layout_gravity="center"
                     android:textColor="?attr/answerButtonTextColor"
                     android:textStyle="bold"
-                    android:text="B"
+                    tools:text="B"
                     style="@style/FooterButton" />
             </FrameLayout>
 
@@ -250,7 +250,7 @@
                     android:layout_gravity="center"
                     android:textColor="?attr/answerButtonTextColor"
                     android:textStyle="bold"
-                    android:text="C"
+                    tools:text="C"
                     style="@style/FooterButton" />
             </FrameLayout>
 
@@ -270,7 +270,7 @@
                     android:layout_gravity="center"
                     android:textColor="?attr/answerButtonTextColor"
                     android:textStyle="bold"
-                    android:text="D"
+                    tools:text="D"
                     style="@style/FooterButton" />
             </FrameLayout>
         </LinearLayout>
