@@ -88,6 +88,22 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+      # A second, small artifact holding just the arm64 build: the one above carries
+      # every ABI and is ~200 MB, which is a lot to pull down onto a phone.
+      - name: Collect the arm64 APK
+        run: |
+          mkdir -p arm64-apk
+          find AnkiDroid/build/outputs/apk -name '*arm64*.apk' -exec cp {} arm64-apk/ \;
+          ls -la arm64-apk
+
+      - name: Upload the arm64 APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ankidroid-arm64-apk
+          path: arm64-apk/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
       - name: List produced APKs
         if: always()
         run: find AnkiDroid/build/outputs/apk -name '*.apk' -exec ls -la {} +
