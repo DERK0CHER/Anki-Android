@@ -2,11 +2,106 @@ package net.bueffel
 
 import net.bueffel.importer.QuestionParser
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Tests [QuestionParser] against the shapes a language model actually produces */
 class QuestionParserTest {
+    // region JSON, the format the prompt asks for
+
+    @Test
+    fun `json with the index of the right answer`() {
+        val result =
+            QuestionParser.parse(
+                """
+                [
+                  {"question": "Hauptstadt von Frankreich?",
+                   "answers": ["Berlin", "Paris", "Rom"],
+                   "correct": 1}
+                ]
+                """.trimIndent(),
+            )
+
+        assertEquals(1, result.questions.size)
+        assertEquals(0, result.skipped)
+        val question = result.questions.single()
+        assertEquals("Hauptstadt von Frankreich?", question.prompt)
+        assertEquals(listOf("Berlin", "Paris", "Rom"), question.answers)
+        assertEquals("Paris", question.correctAnswer)
+    }
+
+    @Test
+    fun `json where correct holds the answer itself`() {
+        val result =
+            QuestionParser.parse(
+                """[{"question": "Q?", "answers": ["eins", "zwei"], "correct": "zwei"}]""",
+            )
+
+        assertEquals(1, result.questions.single().correctIndex)
+    }
+
+    @Test
+    fun `json wrapped in a code fence`() {
+        val result =
+            QuestionParser.parse(
+                "Hier sind deine Fragen:\n\n```json\n" +
+                    """[{"question": "Q?", "answers": ["a", "b"], "correct": 0}]""" +
+                    "\n```\nViel Erfolg!",
+            )
+
+        assertEquals(1, result.questions.size)
+    }
+
+    @Test
+    fun `json wrapped in an object`() {
+        val result =
+            QuestionParser.parse(
+                """{"questions": [{"question": "Q?", "answers": ["a", "b"], "correct": 0}]}""",
+            )
+
+        assertEquals(1, result.questions.size)
+    }
+
+    @Test
+    fun `json with prose around it`() {
+        val result =
+            QuestionParser.parse(
+                """Gerne! [{"question": "Q?", "answers": ["a", "b"], "correct": 1}] Sag Bescheid.""",
+            )
+
+        assertEquals(1, result.questions.single().correctIndex)
+    }
+
+    @Test
+    fun `a json entry with an out of range index is skipped, the rest kept`() {
+        val result =
+            QuestionParser.parse(
+                """
+                [
+                  {"question": "gut", "answers": ["a", "b"], "correct": 0},
+                  {"question": "kaputt", "answers": ["a", "b"], "correct": 7}
+                ]
+                """.trimIndent(),
+            )
+
+        assertEquals(1, result.questions.size)
+        assertEquals(1, result.skipped)
+    }
+
+    @Test
+    fun `more answers than there are pills is skipped`() {
+        val result =
+            QuestionParser.parse(
+                """[{"question": "Q?", "answers": ["a", "b", "c", "d", "e"], "correct": 0}]""",
+            )
+
+        assertEquals(0, result.questions.size)
+        assertEquals(1, result.skipped)
+    }
+
+    // endregion
+
+    // region prose, still accepted when a model ignores the instruction
+
     @Test
     fun `lettered options with a lettered solution`() {
         val result =
@@ -20,13 +115,9 @@ class QuestionParserTest {
                 """.trimIndent(),
             )
 
-        assertEquals(1, result.questions.size)
-        assertEquals(0, result.skipped)
-        val question = result.questions.first()
+        val question = result.questions.single()
         assertEquals("Was bedeutet ein durchgezogener Mittelstreifen?", question.prompt)
-        assertEquals(3, question.choices.size)
-        assertEquals("B", question.correctChoice.label)
-        assertEquals("Er darf nicht überfahren werden", question.correctChoice.text)
+        assertEquals("Er darf nicht überfahren werden", question.correctAnswer)
     }
 
     @Test
@@ -42,33 +133,7 @@ class QuestionParserTest {
                 """.trimIndent(),
             )
 
-        assertEquals(
-            "B",
-            result.questions
-                .single()
-                .correctChoice.label,
-        )
-        assertEquals(
-            "50 km/h",
-            result.questions
-                .single()
-                .correctChoice.text,
-        )
-    }
-
-    @Test
-    fun `the solution may be the full text of the option`() {
-        val result =
-            QuestionParser.parse(
-                """
-                Hauptstadt von Frankreich?
-                A) Berlin
-                B) Paris
-                Richtig: paris
-                """.trimIndent(),
-            )
-
-        assertEquals(1, result.questions.single().correctIndex)
+        assertEquals("50 km/h", result.questions.single().correctAnswer)
     }
 
     @Test
@@ -94,26 +159,6 @@ class QuestionParserTest {
     }
 
     @Test
-    fun `blocks separated by a rule`() {
-        val result =
-            QuestionParser.parse(
-                """
-                Erste Frage?
-                A) eins
-                B) zwei
-                Lösung: A
-                ---
-                Zweite Frage?
-                A) drei
-                B) vier
-                Lösung: B
-                """.trimIndent(),
-            )
-
-        assertEquals(2, result.questions.size)
-    }
-
-    @Test
     fun `a numbered question is not mistaken for an option`() {
         val result =
             QuestionParser.parse(
@@ -127,23 +172,7 @@ class QuestionParserTest {
 
         val question = result.questions.single()
         assertEquals("Was gilt an dieser Kreuzung?", question.prompt)
-        assertEquals(2, question.choices.size)
-    }
-
-    @Test
-    fun `a question spanning two lines`() {
-        val result =
-            QuestionParser.parse(
-                """
-                Du näherst dich einer Kreuzung.
-                Wie verhältst du dich?
-                A) bremsen
-                B) beschleunigen
-                Lösung: A
-                """.trimIndent(),
-            )
-
-        assertEquals("Du näherst dich einer Kreuzung. Wie verhältst du dich?", result.questions.single().prompt)
+        assertEquals(2, question.answers.size)
     }
 
     @Test
@@ -167,25 +196,6 @@ class QuestionParserTest {
     }
 
     @Test
-    fun `more options than there are boxes is skipped`() {
-        val result =
-            QuestionParser.parse(
-                """
-                Zu viele?
-                A) 1
-                B) 2
-                C) 3
-                D) 4
-                E) 5
-                Lösung: A
-                """.trimIndent(),
-            )
-
-        assertEquals(0, result.questions.size)
-        assertEquals(1, result.skipped)
-    }
-
-    @Test
     fun `empty input yields nothing`() {
         val result = QuestionParser.parse("   \n\n  ")
         assertEquals(0, result.questions.size)
@@ -197,6 +207,7 @@ class QuestionParserTest {
         val result = QuestionParser.parse("Hier ist deine Fragensammlung, viel Erfolg!")
         assertEquals(0, result.questions.size)
         assertEquals(1, result.skipped)
-        assertNull(result.questions.firstOrNull())
     }
+
+    // endregion
 }

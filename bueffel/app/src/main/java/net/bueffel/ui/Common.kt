@@ -5,8 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,4 +86,50 @@ fun Caption(
         color = color,
         modifier = modifier,
     )
+}
+
+/** The pill switch from the reference screens: a track, a knob, and a word beside it */
+@Composable
+fun PillToggle(
+    checked: Boolean,
+    label: String,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(BueffelShape.Pill))
+                .clickable { onCheckedChange(!checked) }
+                .padding(vertical = 6.dp),
+    ) {
+        Box(
+            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+            modifier =
+                Modifier
+                    .width(52.dp)
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(BueffelShape.Pill))
+                    .background(if (checked) BueffelColors.TextPrimary else BueffelColors.SurfaceRaised)
+                    .border(
+                        BorderStroke(1.dp, if (checked) BueffelColors.TextPrimary else BueffelColors.Border),
+                        RoundedCornerShape(BueffelShape.Pill),
+                    ).padding(horizontal = 4.dp),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(if (checked) BueffelColors.Background else BueffelColors.TextMuted),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (checked) BueffelColors.TextPrimary else BueffelColors.TextMuted,
+        )
+    }
 }

@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
 import net.bueffel.model.Card
-import net.bueffel.model.Choice
 import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import net.bueffel.ui.DeckListScreen
@@ -44,25 +43,25 @@ class ScreenshotTest {
                     Card(
                         Question(
                             prompt = "Wie verhältst du dich bei einer Panne auf der Autobahn?",
-                            choices =
+                            answers =
                                 listOf(
-                                    Choice("A", "Warnblinkanlage einschalten und Warnweste anlegen"),
-                                    Choice("B", "Auf der Fahrbahn stehen bleiben und winken"),
-                                    Choice("C", "Das Fahrzeug verlassen und auf dem Standstreifen warten"),
-                                    Choice("D", "Den Motor laufen lassen und sitzen bleiben"),
+                                    "Warnblinkanlage einschalten und Warnweste anlegen",
+                                    "Auf der Fahrbahn stehen bleiben und winken",
+                                    "Das Fahrzeug verlassen und auf dem Standstreifen warten",
+                                    "Den Motor laufen lassen und sitzen bleiben",
                                 ),
                             correctIndex = 0,
                         ),
-                        box = 1,
+                        box = 5,
                     ),
                     Card(
                         Question(
                             prompt = "Was bedeutet ein durchgezogener Mittelstreifen?",
-                            choices =
+                            answers =
                                 listOf(
-                                    Choice("A", "Überholen ist erlaubt"),
-                                    Choice("B", "Er darf nicht überfahren werden"),
-                                    Choice("C", "Er markiert eine Baustelle"),
+                                    "Überholen ist erlaubt",
+                                    "Er darf nicht überfahren werden",
+                                    "Er markiert eine Baustelle",
                                 ),
                             correctIndex = 1,
                         ),
@@ -79,7 +78,7 @@ class ScreenshotTest {
     @Test
     fun deckListEmpty() {
         composeRule.setContent {
-            BueffelTheme { DeckListScreen(decks = emptyList(), onOpen = {}, onImport = {}) }
+            BueffelTheme { DeckListScreen(decks = emptyList(), soundOn = true, onSoundChange = {}, onOpen = {}, onImport = {}) }
         }
         capture("01-decks-empty")
     }
@@ -88,7 +87,13 @@ class ScreenshotTest {
     fun deckListWithDecks() {
         composeRule.setContent {
             BueffelTheme {
-                DeckListScreen(decks = listOf(sampleDeck(learned = 1)), onOpen = {}, onImport = {})
+                DeckListScreen(
+                    decks = listOf(sampleDeck(learned = 1)),
+                    soundOn = true,
+                    onSoundChange = {},
+                    onOpen = {},
+                    onImport = {},
+                )
             }
         }
         capture("02-decks")
@@ -105,7 +110,7 @@ class ScreenshotTest {
     @Test
     fun studyQuestion() {
         composeRule.setContent {
-            BueffelTheme { StudyScreen(deck = sampleDeck(), onFinished = {}, onLeave = {}) }
+            BueffelTheme { StudyScreen(deck = sampleDeck(), soundOn = false, onFinished = {}, onLeave = {}) }
         }
         capture("04-study-question")
     }
@@ -113,9 +118,9 @@ class ScreenshotTest {
     @Test
     fun studyAnsweredWrong() {
         composeRule.setContent {
-            BueffelTheme { StudyScreen(deck = sampleDeck(), onFinished = {}, onLeave = {}) }
+            BueffelTheme { StudyScreen(deck = sampleDeck(), soundOn = false, onFinished = {}, onLeave = {}) }
         }
-        // the second option is the wrong one on the first question, so this is the failure state
+        // the order is shuffled on every presentation, so pick by the answer's own text
         composeRule.onNodeWithText("Auf der Fahrbahn stehen bleiben und winken").performClick()
         capture("05-study-wrong")
     }

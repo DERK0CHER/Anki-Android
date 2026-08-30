@@ -29,6 +29,8 @@ import net.bueffel.ui.theme.BueffelShape
 @Composable
 fun DeckListScreen(
     decks: List<Deck>,
+    soundOn: Boolean,
+    onSoundChange: (Boolean) -> Unit,
     onOpen: (Deck) -> Unit,
     onImport: () -> Unit,
 ) {
@@ -71,6 +73,8 @@ fun DeckListScreen(
         }
 
         Spacer(Modifier.height(20.dp))
+        PillToggle(checked = soundOn, label = "Ton", onCheckedChange = onSoundChange)
+        Spacer(Modifier.height(14.dp))
         BueffelButton(text = "Fragen einfügen", onClick = onImport)
         Spacer(Modifier.height(20.dp))
     }
@@ -102,8 +106,8 @@ private fun DeckRow(
         ) {
             Caption(text = "${deck.cards.size} Fragen")
             Caption(
-                text = "${deck.learnedCount} gelernt",
-                color = if (deck.learnedCount > 0) BueffelColors.Correct else BueffelColors.TextMuted,
+                text = "${deck.learnedCount} von ${deck.cards.size} sitzt",
+                color = BueffelColors.progressColor(deck.progress),
             )
         }
         Spacer(Modifier.height(14.dp))
@@ -129,7 +133,7 @@ private fun ProgressLine(fraction: Float) {
                         .fillMaxWidth(fraction.coerceIn(0f, 1f))
                         .height(4.dp)
                         .clip(RoundedCornerShape(BueffelShape.Pill))
-                        .background(BueffelColors.Correct),
+                        .background(BueffelColors.progressColor(fraction)),
             )
         }
     }

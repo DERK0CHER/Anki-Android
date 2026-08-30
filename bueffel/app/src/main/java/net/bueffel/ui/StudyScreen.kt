@@ -14,16 +14,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import net.bueffel.audio.Feedback
 import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
@@ -49,6 +49,7 @@ import net.bueffel.ui.theme.BueffelShape
 @Composable
 fun StudyScreen(
     deck: Deck,
+    soundOn: Boolean,
     onFinished: (List<Card>) -> Unit,
     onLeave: (List<Card>) -> Unit,
 ) {
@@ -60,10 +61,24 @@ fun StudyScreen(
     val card = remember(round) { session.current() }
     val chosen = picked
 
+    // A fresh order every time the question comes round: with a fixed order the answer that
+    // gets remembered is "the second one from the top" rather than the answer itself.
+    val order =
+        remember(round) {
+            card
+                ?.question
+                ?.answers
+                ?.indices
+                ?.shuffled() ?: emptyList()
+        }
+
+    val feedback = remember { Feedback() }
+    DisposableEffect(Unit) { onDispose { feedback.release() } }
+
     fun advance() {
-        val index = picked ?: return
+        val position = picked ?: return
         val question = session.current()?.question ?: return
-        session.answer(correct = index == question.correctIndex)
+        session.answer(correct = order.getOrNull(position) == question.correctIndex)
         picked = null
         round++
     }
@@ -86,6 +101,7 @@ fun StudyScreen(
     ) {
         TopBar(
             progress = session.progress,
+            strength = card?.strength ?: 0f,
             canUndo = session.canUndo && chosen == null,
             onUndo = {
                 if (session.undo()) {
@@ -114,12 +130,16 @@ fun StudyScreen(
 
             Spacer(Modifier.height(26.dp))
 
-            question.choices.forEachIndexed { index, choice ->
-                ChoiceBox(
-                    label = choice.label,
-                    text = choice.text,
-                    state = choiceState(index, picked, question.correctIndex),
-                    onClick = { if (picked == null) picked = index },
+            order.forEachIndexed { position, answerIndex ->
+                AnswerPill(
+                    text = question.answers[answerIndex],
+                    state = answerState(position, picked, order.indexOf(question.correctIndex)),
+                    onClick = {
+                        if (picked == null) {
+                            picked = position
+                            if (soundOn) feedback.play(correct = answerIndex == question.correctIndex)
+                        }
+                    },
                 )
                 Spacer(Modifier.height(BueffelShape.Gap))
             }
@@ -134,8 +154,8 @@ fun StudyScreen(
         ) {
             if (chosen != null) {
                 Verdict(
-                    correct = chosen == question.correctIndex,
-                    correctLabel = question.correctChoice.label,
+                    correct = order.getOrNull(chosen) == question.correctIndex,
+                    correctAnswer = question.correctAnswer,
                 )
             }
         }
@@ -150,6 +170,7 @@ private val VERDICT_STRIP_HEIGHT = 76.dp
 @Composable
 private fun TopBar(
     progress: Float,
+    strength: Float,
     canUndo: Boolean,
     onUndo: () -> Unit,
     onLeave: () -> Unit,
@@ -161,8 +182,12 @@ private fun TopBar(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             PillAction(text = "Schluss", onClick = onLeave)
-            if (canUndo) {
-                PillAction(text = "Zurück", onClick = onUndo)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StrengthMeter(strength)
+                if (canUndo) {
+                    Spacer(Modifier.width(10.dp))
+                    PillAction(text = "Zurück", onClick = onUndo)
+                }
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -188,6 +213,36 @@ private fun TopBar(
     }
 }
 
+/**
+ * How far the question on screen has come, as one pip per box.
+ *
+ * The filled pips run along a gradient from red to light green, so the shade alone says how
+ * safe this question is; the pips say how many steps are left.
+ */
+@Composable
+private fun StrengthMeter(strength: Float) {
+    val filled = (strength * Card.LEARNED_BOX).toInt()
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        repeat(Card.LEARNED_BOX) { index ->
+            val on = index < filled
+            Box(
+                modifier =
+                    Modifier
+                        .width(if (on) 10.dp else 6.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(BueffelShape.Pill))
+                        .background(
+                            if (on) {
+                                BueffelColors.progressColor((index + 1f) / Card.LEARNED_BOX)
+                            } else {
+                                BueffelColors.Border
+                            },
+                        ),
+            )
+        }
+    }
+}
+
 /** A small round target, big enough to hit without looking */
 @Composable
 private fun PillAction(
@@ -207,90 +262,68 @@ private fun PillAction(
     )
 }
 
-private enum class ChoiceState { Untouched, Correct, Wrong, Dimmed }
+private enum class AnswerState { Untouched, Correct, Wrong, Dimmed }
 
-private fun choiceState(
+private fun answerState(
     index: Int,
     picked: Int?,
     correctIndex: Int,
-): ChoiceState =
+): AnswerState =
     when {
-        picked == null -> ChoiceState.Untouched
-        index == correctIndex -> ChoiceState.Correct
-        index == picked -> ChoiceState.Wrong
-        else -> ChoiceState.Dimmed
+        picked == null -> AnswerState.Untouched
+        index == correctIndex -> AnswerState.Correct
+        index == picked -> AnswerState.Wrong
+        else -> AnswerState.Dimmed
     }
 
 /**
- * One answer, as a box carrying its own text: the thing being chosen and the thing being
- * tapped are the same object.
+ * One answer, as a pill carrying its own text.
+ *
+ * There is no letter on it. The answer is written right there, so a badge saying "C" beside it
+ * would only name something the reader is already looking at.
  */
 @Composable
-private fun ChoiceBox(
-    label: String,
+private fun AnswerPill(
     text: String,
-    state: ChoiceState,
+    state: AnswerState,
     onClick: () -> Unit,
 ) {
     val fill =
         when (state) {
-            ChoiceState.Correct -> BueffelColors.CorrectSurface
-            ChoiceState.Wrong -> BueffelColors.WrongSurface
+            AnswerState.Correct -> BueffelColors.CorrectSurface
+            AnswerState.Wrong -> BueffelColors.WrongSurface
             else -> BueffelColors.Surface
         }
     val stroke =
         when (state) {
-            ChoiceState.Correct -> BueffelColors.Correct
-            ChoiceState.Wrong -> BueffelColors.Wrong
+            AnswerState.Correct -> BueffelColors.Correct
+            AnswerState.Wrong -> BueffelColors.Wrong
             else -> BueffelColors.Border
         }
-    val textColor = if (state == ChoiceState.Dimmed) BueffelColors.TextMuted else BueffelColors.TextPrimary
+    val textColor =
+        when (state) {
+            AnswerState.Dimmed -> BueffelColors.TextMuted
+            AnswerState.Correct -> BueffelColors.Correct
+            AnswerState.Wrong -> BueffelColors.Wrong
+            else -> BueffelColors.TextPrimary
+        }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
+        contentAlignment = Alignment.CenterStart,
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(BueffelShape.Radius))
+                .clip(RoundedCornerShape(BueffelShape.Pill))
                 .background(fill)
-                .border(BorderStroke(1.dp, stroke), RoundedCornerShape(BueffelShape.Radius))
-                .clickable(enabled = state == ChoiceState.Untouched, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 18.dp),
+                .border(BorderStroke(1.dp, stroke), RoundedCornerShape(BueffelShape.Pill))
+                .clickable(enabled = state == AnswerState.Untouched, onClick = onClick)
+                .padding(horizontal = 24.dp, vertical = 18.dp),
     ) {
-        Badge(label = label, state = state)
-        Spacer(Modifier.width(14.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
             color = textColor,
-            modifier = Modifier.weight(1f),
         )
-    }
-}
-
-/** The A/B/C/D disc at the head of a box */
-@Composable
-private fun Badge(
-    label: String,
-    state: ChoiceState,
-) {
-    val background =
-        when (state) {
-            ChoiceState.Correct -> BueffelColors.Correct
-            ChoiceState.Wrong -> BueffelColors.Wrong
-            else -> BueffelColors.SurfaceRaised
-        }
-    val foreground =
-        when (state) {
-            ChoiceState.Correct, ChoiceState.Wrong -> BueffelColors.Background
-            ChoiceState.Dimmed -> BueffelColors.TextMuted
-            else -> BueffelColors.TextSecondary
-        }
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.size(30.dp).clip(CircleShape).background(background),
-    ) {
-        Text(text = label, style = MaterialTheme.typography.labelLarge, color = foreground)
     }
 }
 
@@ -298,11 +331,11 @@ private fun Badge(
 @Composable
 private fun Verdict(
     correct: Boolean,
-    correctLabel: String,
+    correctAnswer: String,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (correct) "Richtig" else "Falsch — richtig war $correctLabel",
+            text = if (correct) "Richtig" else "Falsch — richtig: $correctAnswer",
             style = MaterialTheme.typography.titleLarge,
             color = if (correct) BueffelColors.Correct else BueffelColors.Wrong,
             textAlign = TextAlign.Center,

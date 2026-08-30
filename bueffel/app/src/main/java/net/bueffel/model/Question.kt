@@ -1,20 +1,17 @@
 package net.bueffel.model
 
-/** One answer a question offers */
-data class Choice(
-    val label: String,
-    val text: String,
-)
-
 /**
  * A multiple choice question.
  *
- * @param correctIndex index into [choices] of the single right answer
+ * The answers are plain strings. There is no A/B/C/D label: the answer itself is written on the
+ * pill the reader taps, so a letter beside it would name something already in front of them.
+ *
+ * @param correctIndex index into [answers] of the single right one
  */
 data class Question(
     val prompt: String,
-    val choices: List<Choice>,
+    val answers: List<String>,
     val correctIndex: Int,
 ) {
-    val correctChoice: Choice get() = choices[correctIndex]
+    val correctAnswer: String get() = answers[correctIndex]
 }

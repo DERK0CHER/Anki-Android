@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import net.bueffel.data.DeckStore
+import net.bueffel.data.Settings
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.ui.DeckListScreen
@@ -24,9 +25,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val store = DeckStore(applicationContext)
+        val settings = Settings(applicationContext)
         setContent {
             BueffelTheme {
-                BueffelApp(store)
+                BueffelApp(store, settings)
             }
         }
     }
@@ -44,9 +46,13 @@ private sealed interface Screen {
 }
 
 @Composable
-private fun BueffelApp(store: DeckStore) {
+private fun BueffelApp(
+    store: DeckStore,
+    settings: Settings,
+) {
     var decks by remember { mutableStateOf(store.load()) }
     var screen by remember { mutableStateOf<Screen>(Screen.Decks) }
+    var soundOn by remember { mutableStateOf(settings.soundOn) }
 
     fun persist(updated: List<Deck>) {
         decks = updated
@@ -66,6 +72,11 @@ private fun BueffelApp(store: DeckStore) {
         Screen.Decks ->
             DeckListScreen(
                 decks = decks,
+                soundOn = soundOn,
+                onSoundChange = {
+                    soundOn = it
+                    settings.soundOn = it
+                },
                 onOpen = { screen = Screen.Study(it.id) },
                 onImport = { screen = Screen.Import },
             )
@@ -98,6 +109,7 @@ private fun BueffelApp(store: DeckStore) {
                 BackHandler { screen = Screen.Decks }
                 StudyScreen(
                     deck = deck,
+                    soundOn = soundOn,
                     onFinished = { finishStudying(deck.id, it) },
                     onLeave = { finishStudying(deck.id, it) },
                 )

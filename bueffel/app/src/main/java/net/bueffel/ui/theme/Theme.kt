@@ -5,6 +5,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,10 +29,33 @@ object BueffelColors {
     val TextSecondary = Color(0xFFB4B4B8)
     val TextMuted = Color(0xFF7A7A7E)
 
+    /** The middle of the run from not-known to known */
+    val Almost = Color(0xFFFDB022)
+
     val Correct = Color(0xFF32D583)
     val CorrectSurface = Color(0xFF0E1F16)
     val Wrong = Color(0xFFF97066)
     val WrongSurface = Color(0xFF1F1211)
+
+    /**
+     * How well something is known, as one colour on a run from red through amber to light green.
+     *
+     * A question passes through eight boxes, so three buckets would throw most of that away:
+     * the shade itself is the reading, and every right answer visibly moves it along.
+     *
+     * @param fraction 0f for not known at all, 1f for finished
+     */
+    fun progressColor(fraction: Float): Color {
+        val f = fraction.coerceIn(0f, 1f)
+        return if (f < 0.5f) {
+            lerp(Wrong, Almost, f * 2f)
+        } else {
+            lerp(Almost, LearnedGreen, (f - 0.5f) * 2f)
+        }
+    }
+
+    /** The light green the run ends on */
+    val LearnedGreen = Color(0xFF7BE495)
 }
 
 /** Radii and spacing, in one place so every surface agrees */

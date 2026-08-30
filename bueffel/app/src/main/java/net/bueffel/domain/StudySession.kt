@@ -99,7 +99,12 @@ class StudySession(
     private fun gapFor(box: Int): Int = GAPS.getOrElse(box) { GAPS.last() }
 
     companion object {
-        /** Questions to place in front of a returning question, indexed by its box */
-        val GAPS = listOf(2, 5, 10, 20)
+        /**
+         * Questions to place in front of a returning question, indexed by its box.
+         *
+         * One entry per box, so the wait grows all the way to the last one: a question seen
+         * seven times running should not come back as quickly as one seen twice.
+         */
+        val GAPS = listOf(2, 3, 4, 6, 8, 11, 15, 20)
     }
 }

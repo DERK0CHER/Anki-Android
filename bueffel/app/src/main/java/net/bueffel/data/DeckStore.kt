@@ -2,7 +2,6 @@ package net.bueffel.data
 
 import android.content.Context
 import net.bueffel.model.Card
-import net.bueffel.model.Choice
 import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import org.json.JSONArray
@@ -44,14 +43,14 @@ class DeckStore(
         for (deck in decks) {
             val cards = JSONArray()
             for (card in deck.cards) {
-                val choices = JSONArray()
-                for (choice in card.question.choices) {
-                    choices.put(JSONObject().put("label", choice.label).put("text", choice.text))
+                val answers = JSONArray()
+                for (answer in card.question.answers) {
+                    answers.put(answer)
                 }
                 cards.put(
                     JSONObject()
                         .put("prompt", card.question.prompt)
-                        .put("choices", choices)
+                        .put("answers", answers)
                         .put("correctIndex", card.question.correctIndex)
                         .put("box", card.box),
                 )
@@ -70,17 +69,16 @@ class DeckStore(
             val cards = mutableListOf<Card>()
             for (j in 0 until cardsJson.length()) {
                 val cardJson = cardsJson.optJSONObject(j) ?: continue
-                val choicesJson = cardJson.optJSONArray("choices") ?: continue
-                val choices = mutableListOf<Choice>()
-                for (k in 0 until choicesJson.length()) {
-                    val choiceJson = choicesJson.optJSONObject(k) ?: continue
-                    choices += Choice(choiceJson.optString("label"), choiceJson.optString("text"))
+                val answersJson = cardJson.optJSONArray("answers") ?: continue
+                val answers = mutableListOf<String>()
+                for (k in 0 until answersJson.length()) {
+                    answers += answersJson.optString(k)
                 }
                 val correctIndex = cardJson.optInt("correctIndex", -1)
-                if (choices.size < 2 || correctIndex !in choices.indices) continue
+                if (answers.size < 2 || correctIndex !in answers.indices) continue
                 cards +=
                     Card(
-                        question = Question(cardJson.optString("prompt"), choices, correctIndex),
+                        question = Question(cardJson.optString("prompt"), answers, correctIndex),
                         box = cardJson.optInt("box", 0),
                     )
             }

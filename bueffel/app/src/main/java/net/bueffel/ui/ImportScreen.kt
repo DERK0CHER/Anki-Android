@@ -157,8 +157,8 @@ private fun ResultPanel(result: QuestionParser.ImportResult) {
         if (found == 0) {
             Text(
                 text =
-                    "Liegt der Text wirklich in der Zwischenablage? Jede Frage braucht " +
-                        "Antworten als A) B) C) und darunter eine Zeile „Lösung: B\".",
+                    "Liegt die Antwort der KI wirklich in der Zwischenablage? Erwartet wird " +
+                        "das JSON aus dem Prompt oben.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = BueffelColors.TextSecondary,
             )
@@ -223,17 +223,18 @@ private fun defaultName(questions: List<Question>): String {
 private const val AI_PROMPT =
     """Schreibe mir 20 Multiple-Choice-Fragen zum Thema: <HIER DEIN THEMA>
 
-Halte dich genau an dieses Format, mit einer Leerzeile zwischen den Fragen:
+Antworte ausschliesslich mit JSON in genau dieser Form, ohne weiteren Text:
 
-Worum geht es hier?
-A) Erste Antwort
-B) Zweite Antwort
-C) Dritte Antwort
-D) Vierte Antwort
-Lösung: B
+[
+  {
+    "question": "Worum geht es hier?",
+    "answers": ["Erste Antwort", "Zweite Antwort", "Dritte Antwort"],
+    "correct": 1
+  }
+]
 
 Regeln:
+- "correct" ist der Index der richtigen Antwort, gezaehlt ab 0
 - genau eine richtige Antwort pro Frage
-- drei oder vier Antwortmöglichkeiten
-- die Fragen nicht durchnummerieren
-- keine Erklärungen, keine Überschriften, kein Markdown, keine Sternchen"""
+- drei oder vier Antworten
+- keine Erklaerungen, keine Ueberschriften, kein Text vor oder nach dem JSON"""
