@@ -2,6 +2,9 @@ plugins {
     id("com.android.application")
     // Kotlin itself comes from AGP 9; only the Compose compiler plugin is applied separately
     id("org.jetbrains.kotlin.plugin.compose")
+    // renders the real Compose screens to PNGs in a plain JVM test, so the UI can be looked at
+    // without a device - there is no Android emulator available in this project's CI
+    id("io.github.takahirom.roborazzi")
 }
 
 android {
@@ -36,6 +39,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -51,4 +60,9 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.64.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.64.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

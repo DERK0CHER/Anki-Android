@@ -1,0 +1,126 @@
+package net.bueffel
+
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import com.github.takahirom.roborazzi.captureRoboImage
+import net.bueffel.model.Card
+import net.bueffel.model.Choice
+import net.bueffel.model.Deck
+import net.bueffel.model.Question
+import net.bueffel.ui.DeckListScreen
+import net.bueffel.ui.ImportScreen
+import net.bueffel.ui.StudyScreen
+import net.bueffel.ui.theme.BueffelTheme
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Renders each screen to a PNG.
+ *
+ * There is no emulator available for this project, so this is how the interface actually gets
+ * looked at: the screens are drawn by the real Compose code in a JVM test and CI publishes the
+ * images. It catches what unit tests cannot - text that overflows, a control pushed off screen,
+ * spacing that reads wrong on a phone-sized window.
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
+class ScreenshotTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private fun sampleDeck(learned: Int = 0) =
+        Deck(
+            id = "sample",
+            name = "Theorieprüfung Klasse B",
+            cards =
+                listOf(
+                    Card(
+                        Question(
+                            prompt = "Wie verhältst du dich bei einer Panne auf der Autobahn?",
+                            choices =
+                                listOf(
+                                    Choice("A", "Warnblinkanlage einschalten und Warnweste anlegen"),
+                                    Choice("B", "Auf der Fahrbahn stehen bleiben und winken"),
+                                    Choice("C", "Das Fahrzeug verlassen und auf dem Standstreifen warten"),
+                                    Choice("D", "Den Motor laufen lassen und sitzen bleiben"),
+                                ),
+                            correctIndex = 0,
+                        ),
+                        box = 1,
+                    ),
+                    Card(
+                        Question(
+                            prompt = "Was bedeutet ein durchgezogener Mittelstreifen?",
+                            choices =
+                                listOf(
+                                    Choice("A", "Überholen ist erlaubt"),
+                                    Choice("B", "Er darf nicht überfahren werden"),
+                                    Choice("C", "Er markiert eine Baustelle"),
+                                ),
+                            correctIndex = 1,
+                        ),
+                    ),
+                ).mapIndexed { index, card ->
+                    if (index < learned) card.copy(box = Card.LEARNED_BOX) else card
+                },
+        )
+
+    private fun capture(name: String) {
+        composeRule.onRoot().captureRoboImage("$OUTPUT_DIR/$name.png")
+    }
+
+    @Test
+    fun deckListEmpty() {
+        composeRule.setContent {
+            BueffelTheme { DeckListScreen(decks = emptyList(), onOpen = {}, onImport = {}) }
+        }
+        capture("01-decks-empty")
+    }
+
+    @Test
+    fun deckListWithDecks() {
+        composeRule.setContent {
+            BueffelTheme {
+                DeckListScreen(decks = listOf(sampleDeck(learned = 1)), onOpen = {}, onImport = {})
+            }
+        }
+        capture("02-decks")
+    }
+
+    @Test
+    fun importScreen() {
+        composeRule.setContent {
+            BueffelTheme { ImportScreen(onCancel = {}, onImport = { _, _ -> }) }
+        }
+        capture("03-import")
+    }
+
+    @Test
+    fun studyQuestion() {
+        composeRule.setContent {
+            BueffelTheme { StudyScreen(deck = sampleDeck(), onFinished = {}, onLeave = {}) }
+        }
+        capture("04-study-question")
+    }
+
+    @Test
+    fun studyAnsweredWrong() {
+        composeRule.setContent {
+            BueffelTheme { StudyScreen(deck = sampleDeck(), onFinished = {}, onLeave = {}) }
+        }
+        // the second option is the wrong one on the first question, so this is the failure state
+        composeRule.onNodeWithText("Auf der Fahrbahn stehen bleiben und winken").performClick()
+        capture("05-study-wrong")
+    }
+
+    private companion object {
+        const val OUTPUT_DIR = "build/outputs/roborazzi"
+    }
+}

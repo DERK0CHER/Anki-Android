@@ -48,6 +48,28 @@ jobs:
       - name: Assemble
         run: ./gradlew :app:assembleDebug :app:assembleRelease
 
+      # Draws the real Compose screens to PNGs. There is no emulator here, so this is the only
+      # way the interface gets seen; the images are committed back so they can be reviewed.
+      - name: Render screenshots
+        run: ./gradlew :app:testDebugUnitTest --tests 'net.bueffel.ScreenshotTest'
+
+      - name: Commit the screenshots
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          mkdir -p screenshots
+          find app/build/outputs/roborazzi -name '*.png' -exec cp {} screenshots/ \; || true
+          cd "$GITHUB_WORKSPACE"
+          if [ -z "$(git status --porcelain bueffel/screenshots)" ]; then
+            echo "screenshots unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bueffel/screenshots
+          git commit -m "chore(bueffel): refresh rendered screenshots [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       - name: List produced APKs
         if: always()
         run: find app/build/outputs/apk -name '*.apk' -exec ls -la {} + || true
