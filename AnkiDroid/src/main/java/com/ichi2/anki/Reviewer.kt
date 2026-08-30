@@ -2151,6 +2151,14 @@ open class Reviewer :
         /** Time the answer of a correctly answered multiple choice card stays on screen */
         private const val AUTO_ANSWER_DELAY_MS = 700L
 
+        /**
+         * Time the answer of a wrongly answered multiple choice card stays on screen.
+         *
+         * Longer than [AUTO_ANSWER_DELAY_MS]: this is the moment the user actually has to read
+         * the answer they got wrong.
+         */
+        private const val WRONG_ANSWER_DELAY_MS = 3000L
+
         private const val REQUEST_AUDIO_PERMISSION = 0
         private const val ANIMATION_DURATION = 200
         private const val TRANSPARENCY = 0.90f
