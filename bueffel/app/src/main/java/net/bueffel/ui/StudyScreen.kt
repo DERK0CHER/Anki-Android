@@ -281,7 +281,7 @@ private fun Verdict(correct: Boolean) {
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(6.dp))
-        Caption(text = "Tippen für weiter")
+        Caption(text = "Egal wo tippen für weiter")
     }
 }
 

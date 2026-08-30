@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -26,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.bueffel.ui.theme.BueffelColors
@@ -136,33 +136,31 @@ fun LernOMeter(
             // never thinner than it is tall once there is anything at all: a one-box start
             // should read as a dot of red, not as an empty bar
             val filled = if (safe <= 0f) 0.dp else maxOf(track * safe, height)
+            val trackPx = with(LocalDensity.current) { track.toPx() }
             Box(
                 modifier =
                     Modifier
                         .width(filled)
                         .height(height)
-                        .clip(RoundedCornerShape(BueffelShape.Pill)),
-            ) {
-                // as wide as the whole track, so the gradient does not squeeze into the filled
-                // part: the shade at the tip then means the same thing at every length. It has
-                // to be requiredWidth - a plain width is coerced back to the parent's, which is
-                // exactly the squeezing this avoids.
-                Box(
-                    modifier =
-                        Modifier
-                            .requiredWidth(track)
-                            .height(height)
-                            .background(
-                                Brush.horizontalGradient(
+                        .clip(RoundedCornerShape(BueffelShape.Pill))
+                        // The gradient is told the width of the whole track rather than being
+                        // left to fit whatever is drawn, so the shade at the tip means the same
+                        // thing at every length. Sizing an oversized child to do this does not
+                        // work: content that overflows its constraints gets centred, which
+                        // slides the red off the left end.
+                        .background(
+                            Brush.horizontalGradient(
+                                colors =
                                     listOf(
                                         BueffelColors.Wrong,
                                         BueffelColors.Almost,
                                         BueffelColors.LearnedGreen,
                                     ),
-                                ),
+                                startX = 0f,
+                                endX = trackPx,
                             ),
-                )
-            }
+                        ),
+            )
         }
     }
 }

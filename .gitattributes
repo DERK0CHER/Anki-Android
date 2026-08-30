@@ -46,7 +46,3 @@
 *.woff binary
 *.xcf binary
 *.zip binary
-
-# Tell GitHub that this file is not auto-generated, and should be displayed
-# in diffs.
-.idea/dictionaries/*.xml linguist-generated=false
