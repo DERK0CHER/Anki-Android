@@ -14,7 +14,7 @@
  *  this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/**
+/*
  * Detection and parsing of "multiple choice" cards.
  *
  * A multiple choice card offers between 2 and [MultipleChoiceParser.MAX_OPTIONS] answers, exactly

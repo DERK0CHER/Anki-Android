@@ -94,6 +94,8 @@ import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.isReco
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.setEditorStatus
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.Companion.tempAudioPath
 import com.ichi2.anki.multimedia.audio.AudioRecordingController.RecordingState
+import com.ichi2.anki.multiplechoice.MultipleChoiceParser
+import com.ichi2.anki.multiplechoice.MultipleChoiceQuestion
 import com.ichi2.anki.observability.undoableOp
 import com.ichi2.anki.pages.PostRequestUri
 import com.ichi2.anki.pages.toIntent
@@ -117,8 +119,6 @@ import com.ichi2.anki.scheduling.SetDueDateDialog
 import com.ichi2.anki.scheduling.registerOnForgetHandler
 import com.ichi2.anki.servicelayer.NoteService.isMarked
 import com.ichi2.anki.servicelayer.NoteService.toggleMark
-import com.ichi2.anki.multiplechoice.MultipleChoiceParser
-import com.ichi2.anki.multiplechoice.MultipleChoiceQuestion
 import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.settings.enums.DayTheme
 import com.ichi2.anki.snackbar.showSnackbar
@@ -1489,7 +1489,7 @@ open class Reviewer :
         initStudyProgressBar()
     }
 
-    /* ******************************** Multiple choice ******************************** */
+    // region Multiple choice
 
     private fun initMultipleChoiceButtons() {
         multipleChoiceButtonsLayout = findViewById(R.id.multiple_choice_buttons)
@@ -1588,7 +1588,7 @@ open class Reviewer :
         }
     }
 
-    /* ******************************** Study progress ******************************** */
+    // region Study progress
 
     private fun initStudyProgressBar() {
         studyProgressLayout = findViewById(R.id.study_progress_layout)
