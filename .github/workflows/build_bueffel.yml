@@ -44,7 +44,6 @@ jobs:
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-          build-root-directory: bueffel
 
       - name: Assemble
         run: ./gradlew :app:assembleDebug :app:assembleRelease

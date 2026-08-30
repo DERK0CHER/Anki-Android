@@ -1,6 +1,5 @@
 package net.bueffel.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -12,43 +11,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * The palette.
+ * The palette: black, white, and three greys.
  *
- * One near black ground, two greys for the surfaces on top of it, a single violet accent and
- * a green and a red used only to say "right" and "wrong". Nothing else gets a colour, which is
- * what keeps a screen full of answer boxes calm.
+ * Colour is spent only where it carries meaning - green for right, red for wrong. Everything
+ * else is a shade, which is what lets a screen of answer boxes stay quiet.
  */
 object BueffelColors {
-    val Background = Color(0xFF0B0B0F)
-    val Surface = Color(0xFF15151C)
-    val SurfaceRaised = Color(0xFF1E1E27)
-    val Border = Color(0xFF2A2A36)
+    val Background = Color(0xFF000000)
+    val Surface = Color(0xFF101010)
+    val SurfaceRaised = Color(0xFF1A1A1A)
+    val Border = Color(0xFF232323)
 
-    val TextPrimary = Color(0xFFF2F2F5)
-    val TextSecondary = Color(0xFF9A9AAB)
-    val TextMuted = Color(0xFF63636F)
-
-    val Accent = Color(0xFF7C5CFF)
-    val AccentMuted = Color(0xFF2A2440)
+    val TextPrimary = Color(0xFFFFFFFF)
+    val TextSecondary = Color(0xFF8A8A8E)
+    val TextMuted = Color(0xFF5A5A5E)
 
     val Correct = Color(0xFF32D583)
-    val CorrectMuted = Color(0xFF11291F)
+    val CorrectSurface = Color(0xFF0E1F16)
     val Wrong = Color(0xFFF97066)
-    val WrongMuted = Color(0xFF2B1616)
+    val WrongSurface = Color(0xFF1F1211)
 }
 
-/** Corner radii and spacing, kept in one place so every surface agrees */
+/** Radii and spacing, in one place so every surface agrees */
 object BueffelShape {
-    val Radius = 16.dp
-    val RadiusSmall = 10.dp
-    val Gutter = 20.dp
+    /** Panels and answer boxes: generous, in the spirit of the reference screens */
+    val Radius = 24.dp
+    val Gutter = 24.dp
     val Gap = 12.dp
 }
 
 private val BueffelColorScheme =
     darkColorScheme(
-        primary = BueffelColors.Accent,
-        onPrimary = Color.White,
+        primary = BueffelColors.TextPrimary,
+        onPrimary = BueffelColors.Background,
         background = BueffelColors.Background,
         onBackground = BueffelColors.TextPrimary,
         surface = BueffelColors.Surface,
@@ -59,26 +54,24 @@ private val BueffelColorScheme =
         error = BueffelColors.Wrong,
     )
 
+/**
+ * Two sizes carry the screen: a large tight headline for the question, and a relaxed grey
+ * body for everything being read rather than answered.
+ */
 private val BueffelTypography =
     Typography(
-        displaySmall = TextStyle(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold),
-        titleLarge = TextStyle(fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
+        displayLarge = TextStyle(fontSize = 56.sp, lineHeight = 58.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp),
+        displaySmall = TextStyle(fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp),
         titleMedium = TextStyle(fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
-        bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.Normal),
-        bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal),
+        bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 26.sp, fontWeight = FontWeight.Normal),
+        bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal),
         labelLarge = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-        labelSmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+        labelSmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
     )
 
-/**
- * The app is dark whatever the system says: the design is built around one near black ground,
- * and a light variant would be a different design rather than the same one inverted.
- */
+/** The app is black whatever the system theme says: a light variant would be a different design. */
 @Composable
-fun BueffelTheme(
-    @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit,
-) {
+fun BueffelTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = BueffelColorScheme,
         typography = BueffelTypography,

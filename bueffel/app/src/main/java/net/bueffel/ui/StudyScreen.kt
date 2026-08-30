@@ -62,10 +62,11 @@ fun StudyScreen(questions: List<Question> = SampleQuestions.all) {
                 .systemBarsPadding()
                 .padding(horizontal = BueffelShape.Gutter),
     ) {
-        LearnOMeter(
-            done = solved,
+        RunCounter(
+            position = (index % questions.size) + 1,
             total = questions.size,
-            modifier = Modifier.padding(top = 20.dp, bottom = 28.dp),
+            solved = solved,
+            modifier = Modifier.padding(top = 24.dp, bottom = 36.dp),
         )
 
         Column(
@@ -146,8 +147,8 @@ private fun ChoiceBox(
     val fill =
         when (state) {
             ChoiceState.Untouched -> BueffelColors.Surface
-            ChoiceState.Correct -> BueffelColors.CorrectMuted
-            ChoiceState.Wrong -> BueffelColors.WrongMuted
+            ChoiceState.Correct -> BueffelColors.CorrectSurface
+            ChoiceState.Wrong -> BueffelColors.WrongSurface
             ChoiceState.Dimmed -> BueffelColors.Surface
         }
     val stroke =
@@ -254,51 +255,28 @@ private fun ContinueBar(
     }
 }
 
-/**
- * How much of the set is sitting in the back boxes: the one number worth showing while studying.
- */
+/** "1 / 5" in the corner, the way the reference screens count a run */
 @Composable
-private fun LearnOMeter(
-    done: Int,
+private fun RunCounter(
+    position: Int,
     total: Int,
+    solved: Int,
     modifier: Modifier = Modifier,
 ) {
-    val fraction = if (total <= 0) 0f else (done.toFloat() / total).coerceIn(0f, 1f)
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = "Lernstand",
-                style = MaterialTheme.typography.labelSmall,
-                color = BueffelColors.TextMuted,
-            )
-            Text(
-                text = "$done / $total",
-                style = MaterialTheme.typography.labelSmall,
-                color = BueffelColors.TextSecondary,
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(BueffelColors.SurfaceRaised),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth(fraction)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(BueffelColors.Accent),
-            )
-        }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "$position / $total",
+            style = MaterialTheme.typography.labelSmall,
+            color = BueffelColors.TextSecondary,
+        )
+        Text(
+            text = "$solved richtig",
+            style = MaterialTheme.typography.labelSmall,
+            color = BueffelColors.TextMuted,
+        )
     }
 }
 
