@@ -63,9 +63,9 @@ import net.bueffel.ui.theme.BueffelShape
 /**
  * The study loop: a question, one box per answer, and nothing else on screen.
  *
- * The question hangs high with air around it and the answers gather at the bottom, under the
- * thumb that has to hit them; the space between the two is the screen breathing, not leftovers.
- * Rounds slide in from the right and out to the left, so answering visibly moves the set along.
+ * The question and its answers sit together in the middle of the screen, with the leftover
+ * space split above and below them rather than opening a hole at one end. Rounds slide in from
+ * the right and out to the left, so answering visibly moves the set along.
  *
  * Picking a box reveals the outcome at once and the screen then waits. Nothing advances on a
  * timer, so how long the answer stays up is the reader's decision.
@@ -227,7 +227,7 @@ private data class RoundView(
     val hard: Boolean,
 )
 
-/** One question with its answers: the question up in the air, the answers down at the thumb */
+/** One question with its answers, as one block in the middle of the screen */
 @Composable
 private fun Round(
     view: RoundView,
@@ -238,9 +238,9 @@ private fun Round(
     // clipped at the bottom with no way to reach them - the air between the two blocks is worth
     // having, but not at the price of an answer you cannot tap.
     //
-    // The column is at least as tall as the screen, so SpaceBetween holds the question up and
-    // the answers down while they fit. Once they do not, the column simply grows past the
-    // screen, the free space is gone, and the whole thing scrolls.
+    // The column is at least as tall as the screen, so a short question and its answers sit
+    // together in the middle with the leftover split above and below. Once they are taller than
+    // that, the column simply grows past the screen and the whole thing scrolls.
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier =
@@ -248,7 +248,7 @@ private fun Round(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .heightIn(min = maxHeight),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.Center,
         ) {
             Column {
                 Spacer(Modifier.height(6.dp))
@@ -458,11 +458,20 @@ private fun AnswerCard(
                 }.clip(RoundedCornerShape(BueffelShape.Radius))
                 .background(fill)
                 .border(BorderStroke(1.dp, stroke), RoundedCornerShape(BueffelShape.Radius))
-                .clickable(
-                    interactionSource = interaction,
-                    indication = null,
-                    enabled = state == AnswerState.Untouched,
-                    onClick = onClick,
+                // The modifier is dropped once answered rather than disabled. A disabled
+                // clickable still takes part in hit testing and swallows the touch, so tapping
+                // an answer after answering did nothing at all and only the gaps between the
+                // boxes moved to the next question.
+                .then(
+                    if (state == AnswerState.Untouched) {
+                        Modifier.clickable(
+                            interactionSource = interaction,
+                            indication = null,
+                            onClick = onClick,
+                        )
+                    } else {
+                        Modifier
+                    },
                 ).padding(horizontal = 22.dp, vertical = 16.dp),
     ) {
         Text(
