@@ -83,7 +83,7 @@ fun SubtopicScreen(
             color = BueffelColors.TextPrimary,
         )
         Spacer(Modifier.height(8.dp))
-        Caption(text = "${deck.cards.size} Fragen · ${deck.learnedCount} sicher")
+        Caption(text = countLine(deck.cards.size, deck.learnedCount))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -121,7 +121,7 @@ private fun SubtopicRow(
             color = BueffelColors.TextPrimary,
         )
         Spacer(Modifier.height(4.dp))
-        Caption(text = "${subtopic.cards.size} Fragen · ${subtopic.learnedCount} sicher")
+        Caption(text = countLine(subtopic.cards.size, subtopic.learnedCount))
         Spacer(Modifier.height(14.dp))
         ProgressBar(fraction = subtopic.progress, height = 10.dp)
     }

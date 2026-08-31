@@ -155,7 +155,7 @@ private fun DeckRow(
 
 /** Parts and questions, or just questions when the topic was never split up */
 private fun deckLine(deck: Deck): String {
-    val questions = "${deck.cards.size} Fragen · ${deck.learnedCount} sicher"
+    val questions = countLine(deck.cards.size, deck.learnedCount)
     if (deck.subtopics.size <= 1) return questions
     return "${deck.subtopics.size} Bereiche · $questions"
 }

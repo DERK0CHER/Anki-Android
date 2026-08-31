@@ -110,6 +110,20 @@ fun BueffelButton(
     }
 }
 
+/**
+ * "1 Frage · 1 sicher", and it says Fragen when there is more than one.
+ *
+ * Trivial, and it was wrong in two places: a count line that reads "1 Fragen" makes an app look
+ * like nobody ever ran it.
+ */
+fun countLine(
+    questions: Int,
+    learned: Int,
+): String {
+    val word = if (questions == 1) "Frage" else "Fragen"
+    return "$questions $word · $learned sicher"
+}
+
 /** A small caption above a block, in the grey the reference screens use for secondary text */
 @Composable
 fun Caption(
