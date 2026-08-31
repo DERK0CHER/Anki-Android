@@ -1,16 +1,20 @@
 package net.bueffel
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import net.bueffel.data.DeckStore
 import net.bueffel.data.Settings
 import net.bueffel.importer.DeckBuilder
@@ -21,6 +25,7 @@ import net.bueffel.ui.ImportScreen
 import net.bueffel.ui.StudyScreen
 import net.bueffel.ui.SubtopicScreen
 import net.bueffel.ui.theme.BueffelTheme
+import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,6 +92,33 @@ private fun BueffelApp(
         screen = if (deck != null && deck.subtopics.size > 1) Screen.Subtopics(deckId) else Screen.Decks
     }
 
+    // Backup and restore go through the system file picker, so the file lands wherever the
+    // learner keeps things and no permission is needed for any of it.
+    val context = LocalContext.current
+    val exportFile =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_TYPE)) { uri ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(store.export(decks).toByteArray())
+                    }
+                }.onFailure { Log.w(TAG, "could not write the backup", it) }
+            }
+        }
+    val restoreFile =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                runCatching {
+                    val text =
+                        context.contentResolver
+                            .openInputStream(uri)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
+                    if (text != null) persist(store.restore(decks, text))
+                }.onFailure { Log.w(TAG, "could not read the backup", it) }
+            }
+        }
+
     /** A topic with a single part has nothing to choose between: open it and start */
     fun open(deck: Deck) {
         screen =
@@ -108,6 +140,8 @@ private fun BueffelApp(
                 },
                 onOpen = { open(it) },
                 onImport = { screen = Screen.Import },
+                onExport = { exportFile.launch("bueffel-${LocalDate.now()}.json") },
+                onRestore = { restoreFile.launch(arrayOf(BACKUP_TYPE, "text/plain", "*/*")) },
             )
 
         Screen.Import -> {
@@ -170,3 +204,8 @@ private fun BueffelApp(
         }
     }
 }
+
+private const val TAG = "Bueffel"
+
+/** What a backup is written as, and the first thing offered when one is picked back up */
+private const val BACKUP_TYPE = "application/json"

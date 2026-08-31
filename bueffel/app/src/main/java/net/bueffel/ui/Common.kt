@@ -139,6 +139,26 @@ fun Caption(
     )
 }
 
+/** A small, quiet target: a word on a round surface, for things that are not the main act */
+@Composable
+fun QuietAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = BueffelColors.TextSecondary,
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(BueffelShape.Pill))
+                .background(BueffelColors.Surface)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+    )
+}
+
 /** A numbered line: a thin ring with the digit, then the step itself */
 @Composable
 fun StepLabel(

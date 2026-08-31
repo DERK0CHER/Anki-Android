@@ -39,6 +39,28 @@ class DeckStore(
         }
     }
 
+    /** The whole state as JSON, for writing to a file the learner keeps */
+    fun export(decks: List<Deck>): String = encode(decks)
+
+    /**
+     * Reads a backup back in.
+     *
+     * A topic already here is replaced by its backed up self and anything not in the backup is
+     * left alone, so restoring on a device that has since gained a topic does not throw it away.
+     * A file that reads as nothing at all changes nothing.
+     */
+    fun restore(
+        current: List<Deck>,
+        text: String,
+    ): List<Deck> {
+        val loaded = runCatching { decode(text) }.getOrNull().orEmpty()
+        if (loaded.isEmpty()) return current
+        val byId = loaded.associateBy { it.id }
+        val kept = current.map { byId[it.id] ?: it }
+        val added = loaded.filterNot { backup -> current.any { it.id == backup.id } }
+        return kept + added
+    }
+
     private fun encode(decks: List<Deck>): String {
         val array = JSONArray()
         for (deck in decks) {

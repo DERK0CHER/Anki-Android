@@ -5,12 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +41,8 @@ fun DeckListScreen(
     onSoundChange: (Boolean) -> Unit,
     onOpen: (Deck) -> Unit,
     onImport: () -> Unit,
+    onExport: () -> Unit = {},
+    onRestore: () -> Unit = {},
 ) {
     Column(
         modifier =
@@ -72,7 +76,16 @@ fun DeckListScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        PillToggle(checked = soundOn, label = "Ton", onCheckedChange = onSoundChange)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PillToggle(checked = soundOn, label = "Ton", onCheckedChange = onSoundChange)
+            Spacer(Modifier.weight(1f))
+            QuietAction(text = "sichern", onClick = onExport)
+            Spacer(Modifier.width(8.dp))
+            QuietAction(text = "laden", onClick = onRestore)
+        }
         Spacer(Modifier.height(14.dp))
         BueffelButton(text = "Fragen einfügen", onClick = onImport)
         Spacer(Modifier.height(20.dp))
