@@ -19,12 +19,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -182,57 +184,70 @@ private fun Round(
     picked: Int?,
     onPick: (Int) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    // Everything scrolls together. Scrolling only the question left a long set of answers
+    // clipped at the bottom with no way to reach them - the air between the two blocks is worth
+    // having, but not at the price of an answer you cannot tap.
+    //
+    // The column is at least as tall as the screen, so SpaceBetween holds the question up and
+    // the answers down while they fit. Once they do not, the column simply grows past the
+    // screen, the free space is gone, and the whole thing scrolls.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier =
                 Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = maxHeight),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Spacer(Modifier.height(6.dp))
-            Caption(
-                text = if (view.remaining == 1) "Letzte Frage" else "Noch ${view.remaining} Fragen",
-            )
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = view.prompt,
-                style = MaterialTheme.typography.displaySmall,
-                color = BueffelColors.TextPrimary,
-            )
-            Spacer(Modifier.height(24.dp))
-        }
-
-        view.answers.forEachIndexed { position, answer ->
-            AnswerCard(
-                text = answer,
-                state = answerState(position, picked, view.correctPosition),
-                onClick = { onPick(position) },
-            )
-            Spacer(Modifier.height(BueffelShape.Gap))
-        }
-
-        // the strip keeps its height whether or not an answer is showing, so the boxes above
-        // never shift under a finger that is about to tap one
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
-        ) {
-            // the reveal is driven by a value rather than by AnimatedVisibility: inside a Box the
-            // ColumnScope overload of that is the one in scope, and it cannot be called here
-            val appear by animateFloatAsState(
-                targetValue = if (picked == null) 0f else 1f,
-                animationSpec = tween(BueffelMotion.Quick),
-                label = "verdict",
-            )
-            if (picked != null) {
-                Verdict(
-                    correct = picked == view.correctPosition,
-                    modifier =
-                        Modifier.graphicsLayer {
-                            alpha = appear
-                            translationY = (1f - appear) * VERDICT_RISE.toPx()
-                        },
+            Column {
+                Spacer(Modifier.height(6.dp))
+                Caption(
+                    text = if (view.remaining == 1) "Letzte Frage" else "Noch ${view.remaining} Fragen",
                 )
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = view.prompt,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = BueffelColors.TextPrimary,
+                )
+            }
+
+            Column {
+                Spacer(Modifier.height(24.dp))
+                view.answers.forEachIndexed { position, answer ->
+                    AnswerCard(
+                        text = answer,
+                        state = answerState(position, picked, view.correctPosition),
+                        onClick = { onPick(position) },
+                    )
+                    Spacer(Modifier.height(BueffelShape.Gap))
+                }
+
+                // the strip keeps its height whether or not an answer is showing, so the boxes
+                // above never shift under a finger that is about to tap one
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
+                ) {
+                    // the reveal is driven by a value rather than by AnimatedVisibility: inside a
+                    // Box the ColumnScope overload is the one in scope, and it cannot be called
+                    val appear by animateFloatAsState(
+                        targetValue = if (picked == null) 0f else 1f,
+                        animationSpec = tween(BueffelMotion.Quick),
+                        label = "verdict",
+                    )
+                    if (picked != null) {
+                        Verdict(
+                            correct = picked == view.correctPosition,
+                            modifier =
+                                Modifier.graphicsLayer {
+                                    alpha = appear
+                                    translationY = (1f - appear) * VERDICT_RISE.toPx()
+                                },
+                        )
+                    }
+                }
             }
         }
     }

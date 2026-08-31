@@ -125,6 +125,47 @@ class ScreenshotTest {
         capture("05-study-wrong")
     }
 
+    /**
+     * The case that broke: more question and answer than fits.
+     *
+     * Only the question used to scroll, so a set of long answers ran off the bottom with no way
+     * to reach the last one. This renders that state, which is the only way to see it here.
+     */
+    @Test
+    fun studyLongQuestion() {
+        val deck =
+            Deck(
+                id = "long",
+                name = "Lange Fragen",
+                cards =
+                    listOf(
+                        Card(
+                            Question(
+                                prompt =
+                                    "Du näherst dich bei Nacht einer unbeschrankten Bahnübergang" +
+                                        "stelle und siehst das Andreaskreuz. Wie verhältst du dich?",
+                                answers =
+                                    listOf(
+                                        "Mit mäßiger Geschwindigkeit heranfahren, auf Signale achten " +
+                                            "und notfalls vor dem Andreaskreuz anhalten",
+                                        "Zügig über den Übergang fahren, damit du ihn schnell " +
+                                            "wieder verlässt und niemanden aufhältst",
+                                        "Anhalten, aussteigen und in beide Richtungen die Strecke " +
+                                            "absuchen, bevor du weiterfährst",
+                                        "Hupen und die Lichthupe betätigen, um auf dich aufmerksam " +
+                                            "zu machen, dann weiterfahren",
+                                    ),
+                                correctIndex = 0,
+                            ),
+                        ),
+                    ),
+            )
+        composeRule.setContent {
+            BueffelTheme { StudyScreen(deck = deck, soundOn = false, onFinished = {}, onLeave = {}) }
+        }
+        capture("07-study-long")
+    }
+
     @Test
     fun studyFinished() {
         // one question, one box short of learned: a single right answer finishes the deck
