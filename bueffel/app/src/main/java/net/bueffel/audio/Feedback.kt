@@ -68,8 +68,11 @@ class Feedback {
                     .setAudioAttributes(
                         AudioAttributes
                             .Builder()
-                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            // USAGE_MEDIA, not ASSISTANCE_SONIFICATION: sonification plays on
+                            // the system stream, which the volume keys do not reach while an app
+                            // is in front, so the tones could not be turned down at all.
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                             .build(),
                     ).setAudioFormat(
                         AudioFormat

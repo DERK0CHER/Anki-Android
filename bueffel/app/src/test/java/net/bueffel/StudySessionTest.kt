@@ -3,6 +3,7 @@ package net.bueffel
 import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
 import net.bueffel.model.Question
+import net.bueffel.model.strengthOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -68,7 +69,8 @@ class StudySessionTest {
         session.answer(correct = true)
 
         assertTrue(session.progress > before)
-        assertEquals(1f / (2 * Card.LEARNED_BOX), session.progress, 0.0001f)
+        // one of two questions on its first box, averaged over both
+        assertEquals(strengthOf(1) / 2f, session.progress, 0.0001f)
     }
 
     @Test
@@ -97,9 +99,9 @@ class StudySessionTest {
     }
 
     @Test
-    fun `four right in a row sends a question a full twenty back`() {
-        // every card one answer away from the fourth box, so the first one crosses it here
-        val session = StudySession(deck(30, box = 3))
+    fun `the wait grows as a question gets stronger`() {
+        // a whole set on its first box, so every answer here re-queues rather than resting
+        val session = StudySession(deck(StudySession.WORKING_SET, box = 1))
         val first = requireNotNull(session.current()).question.prompt
 
         session.answer(correct = true)
@@ -109,7 +111,14 @@ class StudySessionTest {
             session.answer(correct = true)
         }
 
-        assertEquals(20, seenBefore)
+        assertEquals(StudySession.GAPS[2], seenBefore)
+    }
+
+    @Test
+    fun `the rotation caps how far back a question can go`() {
+        // the ladder runs past fifty, but only twelve questions are in rotation, so anything
+        // beyond that is simply the back of the queue rather than a longer wait
+        assertTrue(StudySession.GAPS.last() > StudySession.WORKING_SET)
     }
 
     @Test
@@ -203,7 +212,7 @@ class StudySessionTest {
 
     @Test
     fun `a question marked hard comes back in half the time`() {
-        val session = StudySession(deck(30, box = 3))
+        val session = StudySession(deck(StudySession.WORKING_SET, box = 1))
         session.flag(hard = true)
         val first = requireNotNull(session.current()).question.prompt
 
@@ -214,7 +223,71 @@ class StudySessionTest {
             session.answer(correct = true)
         }
 
-        // the fourth box waits twenty questions out; marked hard, it waits ten
-        assertEquals(10, seenBefore)
+        assertEquals(StudySession.GAPS[2] / 2, seenBefore)
+    }
+
+    @Test
+    fun `the first round only asks for four in a row`() {
+        val session = StudySession(deck(3))
+
+        assertEquals(1, session.roundNumber)
+        assertEquals(4, session.target)
+
+        // take every question to four; the round should then be over, not the set
+        repeat(3 * 4) { session.answer(correct = true) }
+
+        assertEquals(2, session.roundNumber)
+        assertEquals(6, session.target)
+        assertTrue(!session.isFinished)
+        assertEquals(0, session.learnedCount)
+    }
+
+    @Test
+    fun `a whole set at four is already most of the way along`() {
+        val session = StudySession(deck(3))
+
+        repeat(3 * 4) { session.answer(correct = true) }
+
+        // the point of the curve: broad beats deep, and the bar says so
+        assertEquals(0.60f, session.progress, 0.02f)
+    }
+
+    @Test
+    fun `no question runs ahead of the round it is in`() {
+        val session = StudySession(deck(4))
+        val boxes = mutableListOf<Int>()
+
+        repeat(4 * 4) { boxes += requireNotNull(session.answer(correct = true)).box }
+
+        assertEquals(4, boxes.max())
+    }
+
+    @Test
+    fun `the last round is the one that finishes the set`() {
+        val session = StudySession(deck(2))
+
+        repeat(200) { session.answer(correct = true) }
+
+        assertTrue(session.isFinished)
+        assertEquals(2, session.learnedCount)
+        assertEquals(1f, session.progress, 0.0001f)
+    }
+
+    @Test
+    fun `a set picked up halfway starts in the round it left off in`() {
+        val session = StudySession(deck(3, box = 5))
+
+        assertEquals(2, session.roundNumber)
+        assertEquals(6, session.target)
+    }
+
+    @Test
+    fun `nothing is dropped when a round hands over to the next`() {
+        val session = StudySession(deck(20))
+
+        repeat(20 * 4) { session.answer(correct = true) }
+
+        assertEquals(20, session.snapshot().size)
+        assertEquals(2, session.roundNumber)
     }
 }

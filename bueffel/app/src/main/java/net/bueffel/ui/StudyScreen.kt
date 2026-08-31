@@ -94,11 +94,13 @@ fun StudyScreen(
                     card.question.answers.indices
                         .shuffled()
                 RoundView(
-                    round = round,
+                    step = round,
                     prompt = card.question.prompt,
                     answers = order.map { card.question.answers[it] },
                     correctPosition = order.indexOf(card.question.correctIndex),
-                    remaining = session.remaining,
+                    round = session.roundNumber,
+                    target = session.target,
+                    remaining = session.remainingThisRound,
                     hard = card.hard,
                 )
             }
@@ -204,7 +206,7 @@ fun StudyScreen(
             } else {
                 Round(
                     view = target,
-                    picked = if (target.round == round) chosen else null,
+                    picked = if (target.step == round) chosen else null,
                     onPick = { position ->
                         if (picked == null) {
                             picked = position
@@ -219,13 +221,26 @@ fun StudyScreen(
 
 /** Everything one round shows, captured so entering and leaving rounds can animate side by side */
 private data class RoundView(
+    val step: Int,
     val round: Int,
+    val target: Int,
     val prompt: String,
     val answers: List<String>,
     val correctPosition: Int,
     val remaining: Int,
     val hard: Boolean,
 )
+
+/**
+ * What the caption over the question says.
+ *
+ * The round matters more than the count: knowing this pass only wants four right answers is what
+ * makes a set of two hundred feel finishable.
+ */
+private fun roundLine(view: RoundView): String {
+    val left = if (view.remaining == 1) "letzte Frage" else "noch ${view.remaining}"
+    return "Runde ${view.round} · ${view.target}× richtig · $left"
+}
 
 /** One question with its answers, as one block in the middle of the screen */
 @Composable
@@ -252,9 +267,7 @@ private fun Round(
         ) {
             Column {
                 Spacer(Modifier.height(6.dp))
-                Caption(
-                    text = if (view.remaining == 1) "Letzte Frage" else "Noch ${view.remaining} Fragen",
-                )
+                Caption(text = roundLine(view))
                 Spacer(Modifier.height(14.dp))
                 Text(
                     text = view.prompt,

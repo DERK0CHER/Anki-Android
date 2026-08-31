@@ -1,5 +1,6 @@
 package net.bueffel
 
+import android.media.AudioManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -31,6 +32,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // without this the volume keys adjust the ringer while nothing happens to be playing,
+        // so a two hundred millisecond tone can never be caught in time to turn it down
+        volumeControlStream = AudioManager.STREAM_MUSIC
         val store = DeckStore(applicationContext)
         val settings = Settings(applicationContext)
         setContent {

@@ -1,5 +1,7 @@
 package net.bueffel.model
 
+import kotlin.math.ln
+
 /**
  * A question together with how well it is known.
  *
@@ -14,7 +16,7 @@ data class Card(
     val hard: Boolean = false,
 ) {
     /** Where this question sits on the run from not known to known, 0f..1f */
-    val strength: Float get() = box.toFloat() / LEARNED_BOX
+    val strength: Float get() = strengthOf(box)
 
     val isLearned: Boolean get() = box >= LEARNED_BOX
 
@@ -28,14 +30,33 @@ data class Card(
 }
 
 /**
+ * How much one question is worth, 0f..1f, on a curve rather than a straight line.
+ *
+ * Counted straight, four right in a row is worth exactly half of eight - which is not how it
+ * feels and not how it works. The first few passes are where a question goes from unknown to
+ * roughly known; the last few only make it safe. So the curve is steep at the start and flat at
+ * the end: four in a row reads as 60 %, six as 82 %, and the last two carry the remaining 18 %.
+ *
+ * That also means getting a whole set to four is worth far more than getting a handful to eight,
+ * which is exactly the order the rounds ask for.
+ */
+fun strengthOf(box: Int): Float {
+    val within = box.coerceIn(0, Card.LEARNED_BOX).toDouble() / Card.LEARNED_BOX
+    return (ln(1 + CURVE * within) / ln(1 + CURVE)).toFloat()
+}
+
+/** How sharply the curve bends. Higher is steeper at the start; 1.25 puts four in a row at 60 %. */
+private const val CURVE = 1.25
+
+/**
  * How far a set of questions has come, 0f..1f.
  *
- * Counts boxes rather than finished questions, so it moves on every correct answer instead of
+ * The average of what each question is worth, so it moves on every correct answer rather than
  * standing still until a question is finally done.
  */
 fun progressOf(cards: List<Card>): Float {
     if (cards.isEmpty()) return 0f
-    return cards.sumOf { it.box }.toFloat() / (cards.size * Card.LEARNED_BOX)
+    return cards.map { strengthOf(it.box) }.average().toFloat()
 }
 
 /**

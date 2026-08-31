@@ -1,14 +1,19 @@
 package net.bueffel.domain
 
 import net.bueffel.model.Card
+import net.bueffel.model.progressOf
 
 /**
  * The study rotation.
  *
- * A question leaves the rotation once it has been answered correctly [Card.LEARNED_BOX] times in
- * a row; a wrong answer halves its count. What keeps this bearable is the spacing: a question
- * that just came up is put back far enough down the queue that other questions are seen before
- * it returns, and the further along a question is, the further back it goes.
+ * A set is learned in rounds. The first round takes every question to four right in a row, the
+ * second to six, the last to eight - so the whole set gets roughly known before anything gets
+ * made safe. Drilling one question to eight while forty others are untouched is the slowest way
+ * to learn a set, and it is what happens without rounds.
+ *
+ * A wrong answer halves a question's count. What keeps the rounds bearable is the spacing: a
+ * question that just came up is put back far enough down the queue that other questions are seen
+ * before it returns, and the further along a question is, the further back it goes.
  *
  * Only [WORKING_SET] questions are in that rotation at a time. Drilling a whole set at once
  * teaches nothing - the gaps are meaningless when there are two hundred questions between every
@@ -22,10 +27,15 @@ class StudySession(
     /** In rotation now */
     private val queue: ArrayDeque<Card> = ArrayDeque()
 
-    /** Not yet asked in this session, waiting to be mixed in */
+    /** Below this round's target, waiting to be mixed in */
     private val reserve: ArrayDeque<Card> = ArrayDeque()
 
+    /** At this round's target, waiting for the next round to ask for more */
+    private val resting: MutableList<Card> = mutableListOf()
+
     private val learned: MutableList<Card> = mutableListOf()
+
+    private var round = 0
 
     /** Answers given since the last new question came in */
     private var sinceNew = 0
@@ -36,45 +46,53 @@ class StudySession(
     private data class State(
         val queue: List<Card>,
         val reserve: List<Card>,
+        val resting: List<Card>,
         val learned: List<Card>,
+        val round: Int,
         val sinceNew: Int,
     )
 
     init {
+        val pending = mutableListOf<Card>()
         for (card in cards) {
-            when {
-                card.isLearned -> learned += card
-                // one already under way goes straight into the rotation; a fresh one waits
-                card.box > 0 -> queue.addLast(card)
-                else -> reserve.addLast(card)
-            }
+            if (card.isLearned) learned += card else pending += card
+        }
+        // pick up where the set left off: the first round that still has something below it
+        round = ROUNDS.indexOfFirst { target -> pending.any { it.box < target } }.coerceAtLeast(0)
+        for (card in pending) {
+            if (card.box < target) reserve.addLast(card) else resting += card
         }
         topUp()
     }
 
-    /** Questions not yet learned, whether in the rotation or still in reserve */
-    val remaining: Int get() = queue.size + reserve.size
+    /** What this round asks of every question: this many right answers in a row */
+    val target: Int get() = ROUNDS[round]
+
+    /** Which round is being worked, counting from one */
+    val roundNumber: Int get() = round + 1
+
+    /** Questions not yet learned at all, in any pile */
+    val remaining: Int get() = queue.size + reserve.size + resting.size
+
+    /** Questions this round still has to reach its target */
+    val remainingThisRound: Int get() = queue.size + reserve.size
 
     val learnedCount: Int get() = learned.size
 
     /** The total this session started from, so progress can be shown as "done of total" */
     val total: Int = cards.size
 
-    val isFinished: Boolean get() = queue.isEmpty() && reserve.isEmpty()
+    val isFinished: Boolean get() = queue.isEmpty() && reserve.isEmpty() && resting.isEmpty()
 
     /**
      * How much of the work is done, 0f..1f.
      *
-     * Counts boxes rather than finished questions: a set of forty needs three hundred and twenty
-     * right answers, so "questions learned" sits at zero for a long while and tells the learner
-     * nothing. Boxes move on every single correct answer.
+     * Counts what each question is worth rather than how many are finished: a set of forty needs
+     * three hundred and twenty right answers, so "questions learned" sits at zero for a long
+     * while and tells the learner nothing. It also runs on a curve, so a whole set taken to four
+     * in a row already reads as sixty per cent.
      */
-    val progress: Float
-        get() {
-            if (total == 0) return 1f
-            val filled = snapshot().sumOf { it.box }
-            return (filled.toFloat() / (total * Card.LEARNED_BOX)).coerceIn(0f, 1f)
-        }
+    val progress: Float get() = if (total == 0) 1f else progressOf(snapshot())
 
     /** Whether the last answer can still be taken back */
     val canUndo: Boolean get() = previous != null
@@ -91,14 +109,16 @@ class StudySession(
         val card = queue.removeFirstOrNull() ?: return null
         previous = state().copy(queue = listOf(card) + queue.toList())
         val updated = card.answered(correct)
-        if (updated.isLearned) {
-            learned += updated
-        } else {
-            queue.add(gapFor(updated).coerceAtMost(queue.size), updated)
+        when {
+            updated.isLearned -> learned += updated
+            // done for this round; the next one will ask it again for more
+            updated.box >= target -> resting += updated
+            else -> queue.add(gapFor(updated).coerceAtMost(queue.size), updated)
         }
         sinceNew++
         mixInNew()
         topUp()
+        openNextRound()
         return updated
     }
 
@@ -121,17 +141,41 @@ class StudySession(
         queue.addAll(before.queue)
         reserve.clear()
         reserve.addAll(before.reserve)
+        resting.clear()
+        resting.addAll(before.resting)
         learned.clear()
         learned.addAll(before.learned)
+        round = before.round
         sinceNew = before.sinceNew
         previous = null
         return true
     }
 
     /** Everything the session knows about, for writing back to storage */
-    fun snapshot(): List<Card> = queue.toList() + reserve.toList() + learned
+    fun snapshot(): List<Card> = queue.toList() + reserve.toList() + resting + learned
 
-    private fun state() = State(queue.toList(), reserve.toList(), learned.toList(), sinceNew)
+    private fun state() = State(queue.toList(), reserve.toList(), resting.toList(), learned.toList(), round, sinceNew)
+
+    /**
+     * Starts the next round once this one has nothing left to ask.
+     *
+     * Everything resting that the new target has not reached goes back into the rotation, in the
+     * order it settled - which is roughly weakest first, since a question that needed more
+     * attempts arrived later.
+     */
+    private fun openNextRound() {
+        while (queue.isEmpty() && reserve.isEmpty() && resting.isNotEmpty() && round < ROUNDS.lastIndex) {
+            round++
+            // partitioned rather than removeAll: that removes by equality, so two questions
+            // that happen to match would both go and only one would come back
+            val (asked, stay) = resting.partition { it.box < target }
+            resting.clear()
+            resting.addAll(stay)
+            asked.forEach { reserve.addLast(it) }
+            sinceNew = 0
+            topUp()
+        }
+    }
 
     /** Keeps the rotation full while there is anything left in reserve */
     private fun topUp() {
@@ -159,6 +203,9 @@ class StudySession(
      * have nearly learned waits a long time. One marked hard comes back twice as often as its
      * box would say. It is never zero: the same question twice running tests nothing but short
      * term memory.
+     *
+     * The rotation holds [WORKING_SET], so the caller caps anything longer at the back of the
+     * queue. The far end of the ladder is therefore a statement of intent rather than a count.
      */
     private fun gapFor(card: Card): Int {
         val gap = GAPS.getOrElse(card.box) { GAPS.last() }
@@ -174,6 +221,16 @@ class StudySession(
          * back rather than the eight it used to.
          */
         val GAPS = listOf(2, 4, 8, 13, 20, 28, 38, 50)
+
+        /**
+         * What each round asks for, as right answers in a row.
+         *
+         * Four is where a question stops being guesswork, six where it is reliable, eight where
+         * it is safe. Taking the whole set to four first and only then coming back for six is
+         * far faster than finishing questions one at a time, and it is what the progress curve
+         * rewards: a set all at four is already sixty per cent learned.
+         */
+        val ROUNDS = listOf(4, 6, Card.LEARNED_BOX)
 
         /** Questions in the rotation at once. More than this and the gaps stop meaning anything. */
         const val WORKING_SET = 12
