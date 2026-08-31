@@ -56,7 +56,6 @@ class StudyScreenTest {
 
         repeat(Card.LEARNED_BOX) {
             composeRule.onNodeWithText("blau").performClick()
-            composeRule.onNodeWithText("Richtig").assertIsDisplayed()
             advance()
         }
 
@@ -64,20 +63,21 @@ class StudyScreenTest {
     }
 
     @Test
-    fun `a wrong answer counts as wrong wherever the shuffle puts it`() {
+    fun `a wrong answer never finishes the question, wherever the shuffle puts it`() {
         show()
 
         // more rounds than there are answers, so a mapping that only happens to line up once
         // does not get away with it
         repeat(12) {
             composeRule.onNodeWithText("violett").performClick()
-            composeRule.onNodeWithText("Falsch").assertIsDisplayed()
             advance()
         }
+
+        composeRule.onNodeWithText(PROMPT).assertIsDisplayed()
     }
 
     @Test
-    fun `the question never finishes on wrong answers alone`() {
+    fun `eight wrong answers do not finish the question either`() {
         show()
 
         repeat(Card.LEARNED_BOX) {

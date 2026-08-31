@@ -150,7 +150,8 @@ class ScreenshotTest {
             }
         }
         composeRule.onNodeWithText("Er darf nicht überfahren werden").performClick()
-        composeRule.onNodeWithText("Richtig").performClick()
+        // tapping anywhere moves on, and the question is the one target outside every answer
+        composeRule.onNodeWithText("Was bedeutet ein durchgezogener Mittelstreifen?").performClick()
         capture("06-study-finished")
     }
 

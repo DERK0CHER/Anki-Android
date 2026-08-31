@@ -3,6 +3,7 @@ package net.bueffel.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -40,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,8 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.bueffel.audio.Feedback
 import net.bueffel.domain.StudySession
@@ -108,6 +110,24 @@ fun StudyScreen(
     // The session is told straight away; this only keeps the button in step until the next round.
     var flagged by remember(round) { mutableStateOf<Boolean?>(null) }
 
+    // A single soft wash of colour over the whole screen, once, when an answer is picked.
+    // Which answer was right is already written on the boxes; this only has to say "that
+    // landed" from the corner of the eye, so it is faint and gone again quickly.
+    val flash = remember { Animatable(0f) }
+    val flashColour =
+        if (chosen != null && chosen == view?.correctPosition) {
+            BueffelColors.LearnedGreen
+        } else {
+            BueffelColors.Wrong
+        }
+    LaunchedEffect(round, chosen) {
+        flash.snapTo(0f)
+        if (chosen != null) {
+            flash.animateTo(1f, tween(FLASH_IN))
+            flash.animateTo(0f, tween(FLASH_OUT))
+        }
+    }
+
     val feedback = remember { Feedback() }
     DisposableEffect(Unit) { onDispose { feedback.release() } }
 
@@ -128,6 +148,14 @@ fun StudyScreen(
             Modifier
                 .fillMaxSize()
                 .background(BueffelColors.Background)
+                // painted over the content rather than laid on top of it, so it can never come
+                // between a finger and the screen underneath
+                .drawWithContent {
+                    drawContent()
+                    if (flash.value > 0f) {
+                        drawRect(flashColour.copy(alpha = flash.value * FLASH_PEAK))
+                    }
+                }
                 // once an answer is showing the whole screen moves on: the finger is already in
                 // the middle of the screen, so making it travel to a bar at the bottom is a
                 // second act of aiming for no reason
@@ -245,41 +273,18 @@ private fun Round(
                     )
                     Spacer(Modifier.height(BueffelShape.Gap))
                 }
-
-                // the strip keeps its height whether or not an answer is showing, so the boxes
-                // above never shift under a finger that is about to tap one
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxWidth().height(VERDICT_STRIP_HEIGHT),
-                ) {
-                    // the reveal is driven by a value rather than by AnimatedVisibility: inside a
-                    // Box the ColumnScope overload is the one in scope, and it cannot be called
-                    val appear by animateFloatAsState(
-                        targetValue = if (picked == null) 0f else 1f,
-                        animationSpec = tween(BueffelMotion.Quick),
-                        label = "verdict",
-                    )
-                    if (picked != null) {
-                        Verdict(
-                            correct = picked == view.correctPosition,
-                            modifier =
-                                Modifier.graphicsLayer {
-                                    alpha = appear
-                                    translationY = (1f - appear) * VERDICT_RISE.toPx()
-                                },
-                        )
-                    }
-                }
             }
         }
     }
 }
 
-/** Kept clear of the answer boxes so revealing a verdict never moves them */
-private val VERDICT_STRIP_HEIGHT = 76.dp
+/** How the wash fades in, then away again. Out is slower, so it reads as a wash, not a blink. */
+private const val FLASH_IN = 110
 
-/** How far the verdict rises into place as it appears */
-private val VERDICT_RISE = 10.dp
+private const val FLASH_OUT = 420
+
+/** As strong as the wash ever gets. Faint on purpose: it is a nudge, not an announcement. */
+private const val FLASH_PEAK = 0.16f
 
 /**
  * One row across the top: a way out, the bar, and the flag.
@@ -465,29 +470,6 @@ private fun AnswerCard(
             style = MaterialTheme.typography.bodyLarge,
             color = textColor,
         )
-    }
-}
-
-/**
- * Says how it went. Tapping anywhere on the screen moves on.
- *
- * It does not repeat the right answer: that answer is on screen already, outlined in green, and
- * spelling it out again ran to three lines and off the bottom of the strip.
- */
-@Composable
-private fun Verdict(
-    correct: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        Text(
-            text = if (correct) "Richtig" else "Falsch",
-            style = MaterialTheme.typography.titleLarge,
-            color = if (correct) BueffelColors.Correct else BueffelColors.Wrong,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(6.dp))
-        Caption(text = "Egal wo tippen für weiter")
     }
 }
 
