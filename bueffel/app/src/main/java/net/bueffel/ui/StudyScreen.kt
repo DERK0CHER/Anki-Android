@@ -71,6 +71,8 @@ import net.bueffel.ui.theme.BueffelShape
  * timer, so how long the answer stays up is the reader's decision.
  *
  * @param key identifies the set being studied; a new one starts a new session
+ * @param onProgress called after every answer, so nothing is lost if the app never gets to leave
+ *   this screen properly
  */
 @Composable
 fun StudyScreen(
@@ -79,6 +81,7 @@ fun StudyScreen(
     soundOn: Boolean,
     onFinished: (List<Card>) -> Unit,
     onLeave: (List<Card>) -> Unit,
+    onProgress: (List<Card>) -> Unit = {},
 ) {
     val session = remember(key) { StudySession(cards) }
     var picked by remember { mutableStateOf<Int?>(null) }
@@ -143,6 +146,9 @@ fun StudyScreen(
         session.answer(correct = position == current.correctPosition)
         picked = null
         round++
+        // written after every answer, not only on the way out: the app can be swiped away or
+        // the process reclaimed at any moment, and a whole session's work would go with it
+        onProgress(session.snapshot())
     }
 
     Column(
@@ -176,11 +182,13 @@ fun StudyScreen(
             onHard = {
                 session.flag(it)
                 flagged = it
+                onProgress(session.snapshot())
             },
             onUndo = {
                 if (session.undo()) {
                     picked = null
                     round++
+                    onProgress(session.snapshot())
                 }
             },
             onLeave = { onLeave(session.snapshot()) },

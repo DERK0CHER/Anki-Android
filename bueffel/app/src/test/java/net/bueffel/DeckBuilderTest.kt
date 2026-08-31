@@ -109,4 +109,37 @@ class DeckBuilderTest {
         assertEquals(0, untouched.box)
         assertEquals(5, studiedBack.box)
     }
+
+    @Test
+    fun `a question that appears in two parts keeps both results`() {
+        // the same wording in two parts is ordinary in a large set, and matching them with a
+        // plain map keyed on the question silently wrote one part's result into both
+        val deck =
+            Deck(
+                id = "d",
+                name = "Theorie",
+                subtopics =
+                    listOf(
+                        Subtopic("a", "Erste", listOf(Card(question("gleich"), box = 1))),
+                        Subtopic("b", "Zweite", listOf(Card(question("gleich"), box = 2))),
+                    ),
+            )
+
+        val studied = deck.cards.map { it.copy(box = it.box + 1) }
+        val updated = deck.withMixedCards(studied)
+
+        assertEquals(listOf(2, 3), updated.subtopics.map { it.cards.single().box }.sorted())
+    }
+
+    @Test
+    fun `a part the studied set never touched is left as it was`() {
+        val deck =
+            Deck(
+                id = "d",
+                name = "Theorie",
+                subtopics = listOf(Subtopic("a", "Erste", listOf(Card(question("x"), box = 4)))),
+            )
+
+        assertEquals(deck, deck.withMixedCards(emptyList()))
+    }
 }

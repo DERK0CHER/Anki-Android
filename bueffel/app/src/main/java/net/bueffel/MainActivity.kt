@@ -76,8 +76,8 @@ private fun BueffelApp(
         store.save(updated)
     }
 
-    /** Writes back how far each question has come, and steps back out */
-    fun finishStudying(
+    /** Writes back how far each question has come, without going anywhere */
+    fun keepProgress(
         deckId: String,
         subtopicId: String?,
         cards: List<Card>,
@@ -91,6 +91,15 @@ private fun BueffelApp(
                 }
             },
         )
+    }
+
+    /** Writes it back and steps out of the study screen */
+    fun finishStudying(
+        deckId: String,
+        subtopicId: String?,
+        cards: List<Card>,
+    ) {
+        keepProgress(deckId, subtopicId, cards)
         val deck = decks.firstOrNull { it.id == deckId }
         // one part is not worth a screen of its own, so that topic goes straight back to the list
         screen = if (deck != null && deck.subtopics.size > 1) Screen.Subtopics(deckId) else Screen.Decks
@@ -203,6 +212,7 @@ private fun BueffelApp(
                     soundOn = soundOn,
                     onFinished = { finishStudying(deck.id, current.subtopicId, it) },
                     onLeave = { finishStudying(deck.id, current.subtopicId, it) },
+                    onProgress = { keepProgress(deck.id, current.subtopicId, it) },
                 )
             }
         }

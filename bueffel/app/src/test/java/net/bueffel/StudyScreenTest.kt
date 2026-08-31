@@ -8,6 +8,7 @@ import net.bueffel.model.Card
 import net.bueffel.model.Question
 import net.bueffel.ui.StudyScreen
 import net.bueffel.ui.theme.BueffelTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,6 +87,33 @@ class StudyScreenTest {
         }
 
         composeRule.onNodeWithText(PROMPT).assertIsDisplayed()
+    }
+
+    @Test
+    fun `every answer is reported, not only the way out`() {
+        // the app can be swiped away or the process reclaimed mid-session, and before this the
+        // progress was written only when the screen was left properly
+        val saved = mutableListOf<List<Card>>()
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "d",
+                    cards = deck(),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                    onProgress = { saved += it },
+                )
+            }
+        }
+
+        repeat(3) {
+            composeRule.onNodeWithText("blau").performClick()
+            advance()
+        }
+
+        assertEquals(3, saved.size)
+        assertEquals(listOf(1, 2, 3), saved.map { it.single().box })
     }
 
     private companion object {

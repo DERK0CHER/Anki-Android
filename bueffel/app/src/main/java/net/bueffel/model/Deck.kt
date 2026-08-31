@@ -108,11 +108,16 @@ data class Deck(
      * is matched to its part by the question it carries.
      */
     fun withMixedCards(cards: List<Card>): Deck {
-        val byPrompt = cards.associateBy { it.question.prompt }
+        // Each studied card is handed out once. Matching with a plain map keyed on the question
+        // would keep only the last of any repeated one, so a question that appears in two parts
+        // would get the same result written into both and one part's work would be lost.
+        val waiting = cards.groupBy { it.question.prompt }.mapValues { ArrayDeque(it.value) }
         return copy(
             subtopics =
                 subtopics.map { subtopic ->
-                    subtopic.copy(cards = subtopic.cards.map { byPrompt[it.question.prompt] ?: it })
+                    subtopic.copy(
+                        cards = subtopic.cards.map { waiting[it.question.prompt]?.removeFirstOrNull() ?: it },
+                    )
                 },
         )
     }
