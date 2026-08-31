@@ -26,11 +26,11 @@ import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelShape
 
 /**
- * The home screen: what there is to learn, and how far along each set is.
+ * The home screen: what there is to learn, and how far along each topic is.
  *
- * The composition is a masthead at the top and everything actionable gathered at the bottom,
- * within reach of a thumb: the deck cards sit directly above the buttons rather than hanging
- * off the wordmark with a void beneath them. The space in between is deliberate, not left over.
+ * A masthead at the top and everything actionable gathered at the bottom, within reach of a
+ * thumb. A short list sits in the middle of what is left, so the leftover space reads as air
+ * rather than as a hole at one end.
  */
 @Composable
 fun DeckListScreen(
@@ -62,10 +62,6 @@ fun DeckListScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                // A short list sits in the middle of what is left. Pinned to the bottom it
-                // stranded the wordmark alone above half a screen of black and squashed the
-                // cards against the buttons; pinned to the top it left the same gulf below.
-                // Centred, the leftover splits in two and reads as air rather than as a hole.
                 verticalArrangement = Arrangement.spacedBy(BueffelShape.Gap, Alignment.CenterVertically),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 4.dp),
             ) {
@@ -95,7 +91,7 @@ private fun summaryLine(decks: List<Deck>): String {
 /**
  * The first launch, laid out as an invitation rather than a shrug.
  *
- * The three steps stand where the decks will later stand - directly above the button that
+ * The three steps stand where the topics will later stand - directly above the button that
  * starts them - so the empty screen already has the shape of the full one.
  */
 @Composable
@@ -125,6 +121,12 @@ private fun EmptyState(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * One topic: its name, what it holds, and one bar.
+ *
+ * The bar had a caption reading "Lern-O-Meter" over it. A bar running red to green with a
+ * percentage beside it does not need a word to say that it is progress.
+ */
 @Composable
 private fun DeckRow(
     deck: Deck,
@@ -145,9 +147,15 @@ private fun DeckRow(
             color = BueffelColors.TextPrimary,
         )
         Spacer(Modifier.height(6.dp))
-        // "sicher" rather than "sitzen": the count is often one, and "1 sitzen" reads wrong
-        Caption(text = "${deck.cards.size} Fragen · ${deck.learnedCount} sicher")
-        Spacer(Modifier.height(18.dp))
-        LernOMeter(fraction = deck.progress, label = "Lern-O-Meter", height = 12.dp)
+        Caption(text = deckLine(deck))
+        Spacer(Modifier.height(16.dp))
+        ProgressBar(fraction = deck.progress, height = 12.dp)
     }
+}
+
+/** Parts and questions, or just questions when the topic was never split up */
+private fun deckLine(deck: Deck): String {
+    val questions = "${deck.cards.size} Fragen · ${deck.learnedCount} sicher"
+    if (deck.subtopics.size <= 1) return questions
+    return "${deck.subtopics.size} Bereiche · $questions"
 }

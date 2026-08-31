@@ -2,6 +2,7 @@ package net.bueffel
 
 import net.bueffel.importer.QuestionParser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -219,4 +220,29 @@ class QuestionParserTest {
     }
 
     // endregion
+
+    @Test
+    fun `a question carries the part it names`() {
+        val result =
+            QuestionParser.parse(
+                """
+                [
+                  {"topic": "Vorfahrt", "question": "Wer darf zuerst?",
+                   "answers": ["Der rechte", "Der linke"], "correct": 0}
+                ]
+                """.trimIndent(),
+            )
+
+        assertEquals("Vorfahrt", result.questions.single().topic)
+    }
+
+    @Test
+    fun `a question without a part carries none`() {
+        val result =
+            QuestionParser.parse(
+                """[{"question": "Wer darf zuerst?", "answers": ["A", "B"], "correct": 0}]""",
+            )
+
+        assertNull(result.questions.single().topic)
+    }
 }

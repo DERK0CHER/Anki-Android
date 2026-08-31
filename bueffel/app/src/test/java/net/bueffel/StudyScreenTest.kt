@@ -5,7 +5,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import net.bueffel.model.Card
-import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import net.bueffel.ui.StudyScreen
 import net.bueffel.ui.theme.BueffelTheme
@@ -30,31 +29,26 @@ class StudyScreenTest {
     val composeRule = createComposeRule()
 
     private fun deck() =
-        Deck(
-            id = "d",
-            name = "Farben",
-            cards =
-                listOf(
-                    Card(
-                        Question(
-                            prompt = "Welche Farbe hat der Himmel?",
-                            answers = listOf("blau", "grün", "gelb", "violett"),
-                            correctIndex = 0,
-                        ),
-                    ),
+        listOf(
+            Card(
+                Question(
+                    prompt = PROMPT,
+                    answers = listOf("blau", "grün", "gelb", "violett"),
+                    correctIndex = 0,
                 ),
+            ),
         )
 
     private fun show() {
         composeRule.setContent {
             BueffelTheme {
-                StudyScreen(deck = deck(), soundOn = false, onFinished = {}, onLeave = {})
+                StudyScreen(key = "d", cards = deck(), soundOn = false, onFinished = {}, onLeave = {})
             }
         }
     }
 
-    /** Tapping anywhere moves on; the meter's caption is the one target outside every pill */
-    private fun advance() = composeRule.onNodeWithText("Lern-O-Meter").performClick()
+    /** Tapping anywhere moves on, and the question itself is the one target outside every card */
+    private fun advance() = composeRule.onNodeWithText(PROMPT).performClick()
 
     @Test
     fun `the right answer counts as right wherever the shuffle puts it`() {
@@ -91,6 +85,10 @@ class StudyScreenTest {
             advance()
         }
 
-        composeRule.onNodeWithText("Welche Farbe hat der Himmel?").assertIsDisplayed()
+        composeRule.onNodeWithText(PROMPT).assertIsDisplayed()
+    }
+
+    private companion object {
+        const val PROMPT = "Welche Farbe hat der Himmel?"
     }
 }

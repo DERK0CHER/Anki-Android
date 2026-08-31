@@ -4,6 +4,7 @@ import android.content.Context
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.model.Question
+import net.bueffel.model.Subtopic
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -41,23 +42,42 @@ class DeckStore(
     private fun encode(decks: List<Deck>): String {
         val array = JSONArray()
         for (deck in decks) {
-            val cards = JSONArray()
-            for (card in deck.cards) {
-                val answers = JSONArray()
-                for (answer in card.question.answers) {
-                    answers.put(answer)
-                }
-                cards.put(
+            val subtopics = JSONArray()
+            for (subtopic in deck.subtopics) {
+                subtopics.put(
                     JSONObject()
-                        .put("prompt", card.question.prompt)
-                        .put("answers", answers)
-                        .put("correctIndex", card.question.correctIndex)
-                        .put("box", card.box),
+                        .put("id", subtopic.id)
+                        .put("name", subtopic.name)
+                        .put("cards", encodeCards(subtopic.cards)),
                 )
             }
-            array.put(JSONObject().put("id", deck.id).put("name", deck.name).put("cards", cards))
+            array.put(
+                JSONObject()
+                    .put("id", deck.id)
+                    .put("name", deck.name)
+                    .put("subtopics", subtopics),
+            )
         }
-        return JSONObject().put("version", 1).put("decks", array).toString()
+        return JSONObject().put("version", VERSION).put("decks", array).toString()
+    }
+
+    private fun encodeCards(cards: List<Card>): JSONArray {
+        val array = JSONArray()
+        for (card in cards) {
+            val answers = JSONArray()
+            for (answer in card.question.answers) {
+                answers.put(answer)
+            }
+            array.put(
+                JSONObject()
+                    .put("prompt", card.question.prompt)
+                    .put("answers", answers)
+                    .put("correctIndex", card.question.correctIndex)
+                    .put("box", card.box)
+                    .put("hard", card.hard),
+            )
+        }
+        return array
     }
 
     private fun decode(text: String): List<Deck> {
@@ -65,30 +85,62 @@ class DeckStore(
         val array = JSONObject(text).optJSONArray("decks") ?: return decks
         for (i in 0 until array.length()) {
             val deckJson = array.optJSONObject(i) ?: continue
-            val cardsJson = deckJson.optJSONArray("cards") ?: JSONArray()
-            val cards = mutableListOf<Card>()
-            for (j in 0 until cardsJson.length()) {
-                val cardJson = cardsJson.optJSONObject(j) ?: continue
-                val answersJson = cardJson.optJSONArray("answers") ?: continue
-                val answers = mutableListOf<String>()
-                for (k in 0 until answersJson.length()) {
-                    answers += answersJson.optString(k)
+            val id = deckJson.optString("id")
+            val name = deckJson.optString("name")
+            val subtopicsJson = deckJson.optJSONArray("subtopics")
+            val subtopics =
+                if (subtopicsJson != null) {
+                    decodeSubtopics(subtopicsJson)
+                } else {
+                    // written before topics existed: the whole deck was one flat list of cards
+                    listOf(Subtopic(id = "$id-all", name = name, cards = decodeCards(deckJson.optJSONArray("cards"))))
                 }
-                val correctIndex = cardJson.optInt("correctIndex", -1)
-                if (answers.size < 2 || correctIndex !in answers.indices) continue
-                cards +=
-                    Card(
-                        question = Question(cardJson.optString("prompt"), answers, correctIndex),
-                        box = cardJson.optInt("box", 0),
-                    )
-            }
-            decks += Deck(deckJson.optString("id"), deckJson.optString("name"), cards)
+            decks += Deck(id = id, name = name, subtopics = subtopics)
         }
         return decks
+    }
+
+    private fun decodeSubtopics(array: JSONArray): List<Subtopic> {
+        val subtopics = mutableListOf<Subtopic>()
+        for (i in 0 until array.length()) {
+            val json = array.optJSONObject(i) ?: continue
+            subtopics +=
+                Subtopic(
+                    id = json.optString("id"),
+                    name = json.optString("name"),
+                    cards = decodeCards(json.optJSONArray("cards")),
+                )
+        }
+        return subtopics
+    }
+
+    private fun decodeCards(array: JSONArray?): List<Card> {
+        if (array == null) return emptyList()
+        val cards = mutableListOf<Card>()
+        for (i in 0 until array.length()) {
+            val json = array.optJSONObject(i) ?: continue
+            val answersJson = json.optJSONArray("answers") ?: continue
+            val answers = mutableListOf<String>()
+            for (k in 0 until answersJson.length()) {
+                answers += answersJson.optString(k)
+            }
+            val correctIndex = json.optInt("correctIndex", -1)
+            if (answers.size < 2 || correctIndex !in answers.indices) continue
+            cards +=
+                Card(
+                    question = Question(json.optString("prompt"), answers, correctIndex),
+                    box = json.optInt("box", 0),
+                    hard = json.optBoolean("hard", false),
+                )
+        }
+        return cards
     }
 
     companion object {
         private const val FILE_NAME = "decks.json"
         private const val TAG = "DeckStore"
+
+        /** 1 was a flat list of cards per deck; 2 groups them into subtopics */
+        private const val VERSION = 2
     }
 }

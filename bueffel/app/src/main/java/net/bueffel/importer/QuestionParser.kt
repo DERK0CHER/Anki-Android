@@ -91,7 +91,12 @@ object QuestionParser {
         if (answers.size < 2 || answers.size > MAX_ANSWERS) return null
 
         val correct = resolveCorrect(json, answers) ?: return null
-        return Question(prompt = prompt, answers = answers, correctIndex = correct)
+        return Question(
+            prompt = prompt,
+            answers = answers,
+            correctIndex = correct,
+            topic = json.firstString("topic", "thema", "kategorie", "category", "subtopic"),
+        )
     }
 
     /** `correct` as an index counted from zero, or as the text of the right answer */

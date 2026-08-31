@@ -12,10 +12,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -162,21 +160,24 @@ fun StepLabel(
 }
 
 /**
- * The Lern-O-Meter: how well a set is known, as one bar.
+ * How well a set is known, as one bar.
  *
  * The fill is a real gradient running red, amber, light green across the whole track, and only
  * the earned part of it is drawn. So the colour at the tip is the reading - a bar that is a
  * third full is still red at its end, and one that is nearly full has gone green.
  *
+ * It carries no name. A bar that runs from red to green with a percentage beside it does not
+ * need a word to explain that it is progress.
+ *
  * The drawn part eases towards its new length rather than jumping, but the gradient itself
  * never moves: growth reveals more of the same run.
  */
 @Composable
-fun LernOMeter(
+fun ProgressBar(
     fraction: Float,
     modifier: Modifier = Modifier,
     height: Dp = 10.dp,
-    label: String? = null,
+    showPercent: Boolean = true,
 ) {
     val safe = fraction.coerceIn(0f, 1f)
     val drawn by animateFloatAsState(
@@ -184,24 +185,14 @@ fun LernOMeter(
         animationSpec = tween(BueffelMotion.Settle),
         label = "meterFill",
     )
-    Column(modifier = modifier) {
-        if (label != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Caption(text = label)
-                Caption(
-                    text = "${(safe * 100).roundToInt()} %",
-                    color = BueffelColors.progressColor(safe),
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-        }
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         BoxWithConstraints(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
                     .height(height)
                     .clip(RoundedCornerShape(BueffelShape.Pill))
                     .background(BueffelColors.SurfaceRaised),
@@ -234,6 +225,14 @@ fun LernOMeter(
                                 endX = trackPx,
                             ),
                         ),
+            )
+        }
+        if (showPercent) {
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "${(safe * 100).roundToInt()} %",
+                style = MaterialTheme.typography.labelSmall,
+                color = BueffelColors.progressColor(safe),
             )
         }
     }

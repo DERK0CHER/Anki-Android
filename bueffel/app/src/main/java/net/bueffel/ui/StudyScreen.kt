@@ -1,5 +1,6 @@
 package net.bueffel.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -28,8 +29,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import net.bueffel.audio.Feedback
 import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
-import net.bueffel.model.Deck
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelMotion
 import net.bueffel.ui.theme.BueffelShape
@@ -60,19 +63,22 @@ import net.bueffel.ui.theme.BueffelShape
  *
  * The question hangs high with air around it and the answers gather at the bottom, under the
  * thumb that has to hit them; the space between the two is the screen breathing, not leftovers.
- * Rounds slide in from the right and out to the left, so answering visibly moves the deck along.
+ * Rounds slide in from the right and out to the left, so answering visibly moves the set along.
  *
  * Picking a box reveals the outcome at once and the screen then waits. Nothing advances on a
  * timer, so how long the answer stays up is the reader's decision.
+ *
+ * @param key identifies the set being studied; a new one starts a new session
  */
 @Composable
 fun StudyScreen(
-    deck: Deck,
+    key: String,
+    cards: List<Card>,
     soundOn: Boolean,
     onFinished: (List<Card>) -> Unit,
     onLeave: (List<Card>) -> Unit,
 ) {
-    val session = remember(deck.id) { StudySession(deck) }
+    val session = remember(key) { StudySession(cards) }
     var picked by remember { mutableStateOf<Int?>(null) }
     // bumped after each answer so the screen recomposes off the session's new state
     var round by remember { mutableIntStateOf(0) }
@@ -91,13 +97,23 @@ fun StudyScreen(
                     answers = order.map { card.question.answers[it] },
                     correctPosition = order.indexOf(card.question.correctIndex),
                     remaining = session.remaining,
+                    hard = card.hard,
                 )
             }
         }
     val chosen = picked
 
+    // Flagging must not bump the round: that would redraw the answers in a new order under a
+    // finger mid-question, and any already picked position would then point at the wrong one.
+    // The session is told straight away; this only keeps the button in step until the next round.
+    var flagged by remember(round) { mutableStateOf<Boolean?>(null) }
+
     val feedback = remember { Feedback() }
     DisposableEffect(Unit) { onDispose { feedback.release() } }
+
+    // the session lives here, so leaving has to be handled here too: anywhere else would write
+    // back the cards as they were before any of this was answered
+    BackHandler { onLeave(session.snapshot()) }
 
     fun advance() {
         val position = picked ?: return
@@ -125,7 +141,12 @@ fun StudyScreen(
     ) {
         TopBar(
             progress = session.progress,
+            hard = flagged ?: (view?.hard == true),
             canUndo = session.canUndo && chosen == null,
+            onHard = {
+                session.flag(it)
+                flagged = it
+            },
             onUndo = {
                 if (session.undo()) {
                     picked = null
@@ -175,6 +196,7 @@ private data class RoundView(
     val answers: List<String>,
     val correctPosition: Int,
     val remaining: Int,
+    val hard: Boolean,
 )
 
 /** One question with its answers: the question up in the air, the answers down at the thumb */
@@ -259,45 +281,96 @@ private val VERDICT_STRIP_HEIGHT = 76.dp
 /** How far the verdict rises into place as it appears */
 private val VERDICT_RISE = 10.dp
 
-/** Progress, a way back out, and taking back a mis-tap */
+/**
+ * One row across the top: a way out, the bar, and the flag.
+ *
+ * Everything lives on one line so the questions start as high as they can. The bar takes what
+ * the controls leave, which is why those are single glyphs rather than words.
+ */
 @Composable
 private fun TopBar(
     progress: Float,
+    hard: Boolean,
     canUndo: Boolean,
+    onHard: (Boolean) -> Unit,
     onUndo: () -> Unit,
     onLeave: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(top = 20.dp, bottom = 26.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            PillAction(text = "Schluss", onClick = onLeave)
-            if (canUndo) PillAction(text = "Zurück", onClick = onUndo)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlyphAction(glyph = "\u00d7", description = "Schluss", onClick = onLeave)
+        if (canUndo) {
+            Spacer(Modifier.width(8.dp))
+            GlyphAction(glyph = "\u2190", description = "Zurück", onClick = onUndo)
         }
-        Spacer(Modifier.height(18.dp))
-        LernOMeter(fraction = progress, label = "Lern-O-Meter", height = 12.dp)
+        ProgressBar(
+            fraction = progress,
+            modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
+            height = 10.dp,
+        )
+        HardFlag(hard = hard, onChange = onHard)
     }
 }
 
-/** A small round target, big enough to hit without looking */
+/**
+ * Marks the question on screen as one that keeps going wrong.
+ *
+ * A flagged question comes back twice as often as its box would otherwise say, which is the
+ * whole point of being able to say so: the schedule is an average, and the one question that
+ * refuses to stick should not have to wait its turn with the rest.
+ */
 @Composable
-private fun PillAction(
-    text: String,
-    onClick: () -> Unit,
+private fun HardFlag(
+    hard: Boolean,
+    onChange: (Boolean) -> Unit,
 ) {
+    val background by animateColorAsState(
+        targetValue = if (hard) BueffelColors.Almost else BueffelColors.Surface,
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "flagFill",
+    )
+    val foreground by animateColorAsState(
+        targetValue = if (hard) BueffelColors.Background else BueffelColors.TextMuted,
+        animationSpec = tween(BueffelMotion.Quick),
+        label = "flagText",
+    )
     Text(
-        text = text,
+        text = "schwer",
         style = MaterialTheme.typography.labelSmall,
-        color = BueffelColors.TextSecondary,
+        color = foreground,
         modifier =
             Modifier
                 .clip(RoundedCornerShape(BueffelShape.Pill))
-                .background(BueffelColors.Surface)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 18.dp, vertical = 12.dp),
+                .background(background)
+                .clickable { onChange(!hard) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
     )
+}
+
+/** A single character on a round target, big enough to hit without looking */
+@Composable
+private fun GlyphAction(
+    glyph: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier =
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(BueffelColors.Surface)
+                .clickable(onClickLabel = description, onClick = onClick),
+    ) {
+        Text(
+            text = glyph,
+            style = MaterialTheme.typography.titleMedium,
+            color = BueffelColors.TextSecondary,
+        )
+    }
 }
 
 private enum class AnswerState { Untouched, Correct, Wrong, Dimmed }

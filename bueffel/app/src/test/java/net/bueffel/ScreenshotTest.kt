@@ -8,9 +8,11 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.model.Question
+import net.bueffel.model.Subtopic
 import net.bueffel.ui.DeckListScreen
 import net.bueffel.ui.ImportScreen
 import net.bueffel.ui.StudyScreen
+import net.bueffel.ui.SubtopicScreen
 import net.bueffel.ui.theme.BueffelTheme
 import org.junit.Rule
 import org.junit.Test
@@ -34,41 +36,50 @@ class ScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun sampleDeck(learned: Int = 0) =
+    private fun card(
+        prompt: String,
+        answers: List<String>,
+        correctIndex: Int,
+        box: Int = 0,
+    ) = Card(Question(prompt, answers, correctIndex), box = box)
+
+    private val breakdown =
+        card(
+            prompt = "Wie verhältst du dich bei einer Panne auf der Autobahn?",
+            answers =
+                listOf(
+                    "Warnblinkanlage einschalten und Warnweste anlegen",
+                    "Auf der Fahrbahn stehen bleiben und winken",
+                    "Das Fahrzeug verlassen und auf dem Standstreifen warten",
+                    "Den Motor laufen lassen und sitzen bleiben",
+                ),
+            correctIndex = 0,
+            box = 5,
+        )
+
+    private val centreLine =
+        card(
+            prompt = "Was bedeutet ein durchgezogener Mittelstreifen?",
+            answers =
+                listOf(
+                    "Überholen ist erlaubt",
+                    "Er darf nicht überfahren werden",
+                    "Er markiert eine Baustelle",
+                ),
+            correctIndex = 1,
+        )
+
+    /** A topic in parts, each one at a different stage, which is what the bars are for */
+    private fun sampleDeck() =
         Deck(
             id = "sample",
             name = "Theorieprüfung Klasse B",
-            cards =
+            subtopics =
                 listOf(
-                    Card(
-                        Question(
-                            prompt = "Wie verhältst du dich bei einer Panne auf der Autobahn?",
-                            answers =
-                                listOf(
-                                    "Warnblinkanlage einschalten und Warnweste anlegen",
-                                    "Auf der Fahrbahn stehen bleiben und winken",
-                                    "Das Fahrzeug verlassen und auf dem Standstreifen warten",
-                                    "Den Motor laufen lassen und sitzen bleiben",
-                                ),
-                            correctIndex = 0,
-                        ),
-                        box = 5,
-                    ),
-                    Card(
-                        Question(
-                            prompt = "Was bedeutet ein durchgezogener Mittelstreifen?",
-                            answers =
-                                listOf(
-                                    "Überholen ist erlaubt",
-                                    "Er darf nicht überfahren werden",
-                                    "Er markiert eine Baustelle",
-                                ),
-                            correctIndex = 1,
-                        ),
-                    ),
-                ).mapIndexed { index, card ->
-                    if (index < learned) card.copy(box = Card.LEARNED_BOX) else card
-                },
+                    Subtopic("sample-0", "Verkehrszeichen", listOf(centreLine.copy(box = Card.LEARNED_BOX))),
+                    Subtopic("sample-1", "Verhalten im Verkehr", listOf(breakdown, centreLine)),
+                    Subtopic("sample-2", "Erste Hilfe", listOf(centreLine.copy(box = 2), breakdown.copy(box = 0))),
+                ),
         )
 
     private fun capture(name: String) {
@@ -84,11 +95,11 @@ class ScreenshotTest {
     }
 
     @Test
-    fun deckListWithDecks() {
+    fun deckList() {
         composeRule.setContent {
             BueffelTheme {
                 DeckListScreen(
-                    decks = listOf(sampleDeck(learned = 1)),
+                    decks = listOf(sampleDeck()),
                     soundOn = true,
                     onSoundChange = {},
                     onOpen = {},
@@ -110,7 +121,9 @@ class ScreenshotTest {
     @Test
     fun studyQuestion() {
         composeRule.setContent {
-            BueffelTheme { StudyScreen(deck = sampleDeck(), soundOn = false, onFinished = {}, onLeave = {}) }
+            BueffelTheme {
+                StudyScreen(key = "s", cards = sampleDeck().cards, soundOn = false, onFinished = {}, onLeave = {})
+            }
         }
         capture("04-study-question")
     }
@@ -118,11 +131,27 @@ class ScreenshotTest {
     @Test
     fun studyAnsweredWrong() {
         composeRule.setContent {
-            BueffelTheme { StudyScreen(deck = sampleDeck(), soundOn = false, onFinished = {}, onLeave = {}) }
+            BueffelTheme {
+                StudyScreen(key = "s", cards = listOf(breakdown), soundOn = false, onFinished = {}, onLeave = {})
+            }
         }
         // the order is shuffled on every presentation, so pick by the answer's own text
         composeRule.onNodeWithText("Auf der Fahrbahn stehen bleiben und winken").performClick()
         capture("05-study-wrong")
+    }
+
+    @Test
+    fun studyFinished() {
+        // one question, one box short of learned: a single right answer finishes the set
+        val nearly = listOf(centreLine.copy(box = Card.LEARNED_BOX - 1))
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(key = "s", cards = nearly, soundOn = false, onFinished = {}, onLeave = {})
+            }
+        }
+        composeRule.onNodeWithText("Er darf nicht überfahren werden").performClick()
+        composeRule.onNodeWithText("Richtig").performClick()
+        capture("06-study-finished")
     }
 
     /**
@@ -133,70 +162,43 @@ class ScreenshotTest {
      */
     @Test
     fun studyLongQuestion() {
-        val deck =
-            Deck(
-                id = "long",
-                name = "Lange Fragen",
-                cards =
-                    listOf(
-                        Card(
-                            Question(
-                                prompt =
-                                    "Du näherst dich bei Nacht einer unbeschrankten Bahnübergang" +
-                                        "stelle und siehst das Andreaskreuz. Wie verhältst du dich?",
-                                answers =
-                                    listOf(
-                                        "Mit mäßiger Geschwindigkeit heranfahren, auf Signale achten " +
-                                            "und notfalls vor dem Andreaskreuz anhalten",
-                                        "Zügig über den Übergang fahren, damit du ihn schnell " +
-                                            "wieder verlässt und niemanden aufhältst",
-                                        "Anhalten, aussteigen und in beide Richtungen die Strecke " +
-                                            "absuchen, bevor du weiterfährst",
-                                        "Hupen und die Lichthupe betätigen, um auf dich aufmerksam " +
-                                            "zu machen, dann weiterfahren",
-                                    ),
-                                correctIndex = 0,
-                            ),
+        val long =
+            listOf(
+                card(
+                    prompt =
+                        "Du näherst dich bei Nacht einer unbeschrankten Bahnübergangstelle und " +
+                            "siehst das Andreaskreuz. Wie verhältst du dich?",
+                    answers =
+                        listOf(
+                            "Mit mäßiger Geschwindigkeit heranfahren, auf Signale achten und " +
+                                "notfalls vor dem Andreaskreuz anhalten",
+                            "Zügig über den Übergang fahren, damit du ihn schnell wieder " +
+                                "verlässt und niemanden aufhältst",
+                            "Anhalten, aussteigen und in beide Richtungen die Strecke absuchen, " +
+                                "bevor du weiterfährst",
+                            "Hupen und die Lichthupe betätigen, um auf dich aufmerksam zu " +
+                                "machen, dann weiterfahren",
                         ),
-                    ),
+                    correctIndex = 0,
+                ),
             )
         composeRule.setContent {
-            BueffelTheme { StudyScreen(deck = deck, soundOn = false, onFinished = {}, onLeave = {}) }
+            BueffelTheme {
+                StudyScreen(key = "s", cards = long, soundOn = false, onFinished = {}, onLeave = {})
+            }
         }
         capture("07-study-long")
     }
 
+    /** The parts of one topic, each with its own bar */
     @Test
-    fun studyFinished() {
-        // one question, one box short of learned: a single right answer finishes the deck
-        val deck =
-            Deck(
-                id = "last",
-                name = "Theorieprüfung Klasse B",
-                cards =
-                    listOf(
-                        Card(
-                            Question(
-                                prompt = "Was bedeutet ein durchgezogener Mittelstreifen?",
-                                answers =
-                                    listOf(
-                                        "Überholen ist erlaubt",
-                                        "Er darf nicht überfahren werden",
-                                        "Er markiert eine Baustelle",
-                                    ),
-                                correctIndex = 1,
-                            ),
-                            box = Card.LEARNED_BOX - 1,
-                        ),
-                    ),
-            )
+    fun subtopics() {
         composeRule.setContent {
-            BueffelTheme { StudyScreen(deck = deck, soundOn = false, onFinished = {}, onLeave = {}) }
+            BueffelTheme {
+                SubtopicScreen(deck = sampleDeck(), onOpen = {}, onStudyAll = {}, onBack = {})
+            }
         }
-        composeRule.onNodeWithText("Er darf nicht überfahren werden").performClick()
-        // tapping anywhere moves on; the meter's caption is a target outside every answer box
-        composeRule.onNodeWithText("Lern-O-Meter").performClick()
-        capture("06-study-finished")
+        capture("08-subtopics")
     }
 
     private companion object {

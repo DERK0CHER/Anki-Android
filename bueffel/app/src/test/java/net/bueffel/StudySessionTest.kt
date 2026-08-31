@@ -2,7 +2,6 @@ package net.bueffel
 
 import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
-import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -15,17 +14,12 @@ class StudySessionTest {
     private fun deck(
         size: Int,
         box: Int = 0,
-    ) = Deck(
-        id = "d",
-        name = "Deck",
-        cards =
-            (1..size).map {
-                Card(
-                    Question(prompt = "Frage $it", answers = listOf("eins", "zwei"), correctIndex = 0),
-                    box = box,
-                )
-            },
-    )
+    ) = (1..size).map {
+        Card(
+            Question(prompt = "Frage $it", answers = listOf("eins", "zwei"), correctIndex = 0),
+            box = box,
+        )
+    }
 
     @Test
     fun `eight correct answers in a row learn a question`() {
@@ -163,8 +157,64 @@ class StudySessionTest {
 
     @Test
     fun `answering an empty session does nothing`() {
-        val session = StudySession(Deck("d", "Deck", emptyList()))
+        val session = StudySession(emptyList())
 
         assertNull(session.answer(correct = true))
+    }
+
+    @Test
+    fun `a new question comes in every few answers, not only when one is learned`() {
+        // more questions than the rotation holds, so there is always something in reserve
+        val session = StudySession(deck(60))
+        repeat(StudySession.NEW_EVERY) { session.answer(correct = true) }
+
+        // the rotation started as questions 1 to 12, so anything past that is newly mixed in
+        val next = mutableSetOf<String>()
+        repeat(4) {
+            next += requireNotNull(session.current()).question.prompt
+            session.answer(correct = true)
+        }
+
+        assertTrue("nothing new came in, only $next", next.any { it == "Frage ${StudySession.WORKING_SET + 1}" })
+    }
+
+    @Test
+    fun `a large set does not stay stuck on the same handful`() {
+        val session = StudySession(deck(60))
+        val seen = mutableSetOf<String>()
+
+        repeat(60) {
+            seen += requireNotNull(session.current()).question.prompt
+            session.answer(correct = true)
+        }
+
+        assertTrue("only ${seen.size} different questions in 60 answers", seen.size > StudySession.WORKING_SET)
+    }
+
+    @Test
+    fun `nothing is lost while questions wait in reserve`() {
+        val session = StudySession(deck(60))
+
+        repeat(40) { session.answer(correct = true) }
+
+        assertEquals(60, session.snapshot().size)
+        assertEquals(60, session.remaining + session.learnedCount)
+    }
+
+    @Test
+    fun `a question marked hard comes back in half the time`() {
+        val session = StudySession(deck(30, box = 3))
+        session.flag(hard = true)
+        val first = requireNotNull(session.current()).question.prompt
+
+        session.answer(correct = true)
+        var seenBefore = 0
+        while (requireNotNull(session.current()).question.prompt != first) {
+            seenBefore++
+            session.answer(correct = true)
+        }
+
+        // the fourth box waits twenty questions out; marked hard, it waits ten
+        assertEquals(10, seenBefore)
     }
 }

@@ -218,12 +218,15 @@ private fun defaultName(questions: List<Question>): String {
 
 /** Handed to the user's chat of choice, so the answer comes back in a shape the parser reads */
 private const val AI_PROMPT =
-    """Schreibe mir 20 Multiple-Choice-Fragen zum Thema: <HIER DEIN THEMA>
+    """Schreibe mir 60 Multiple-Choice-Fragen zum Thema: <HIER DEIN THEMA>
+
+Teile sie in 4 bis 8 Unterbereiche auf und schreibe zu jeder Frage dazu, in welchen sie gehoert.
 
 Antworte ausschliesslich mit JSON in genau dieser Form, ohne weiteren Text:
 
 [
   {
+    "topic": "Name des Unterbereichs",
     "question": "Worum geht es hier?",
     "answers": ["Erste Antwort", "Zweite Antwort", "Dritte Antwort"],
     "correct": 1
@@ -231,7 +234,9 @@ Antworte ausschliesslich mit JSON in genau dieser Form, ohne weiteren Text:
 ]
 
 Regeln:
+- "topic" ist der Unterbereich, immer gesetzt, gleich geschrieben fuer alle Fragen darin
 - "correct" ist der Index der richtigen Antwort, gezaehlt ab 0
 - genau eine richtige Antwort pro Frage
 - drei oder vier Antworten
+- die falschen Antworten muessen plausibel sein, keine offensichtlichen Fuellsel
 - keine Erklaerungen, keine Ueberschriften, kein Text vor oder nach dem JSON"""
