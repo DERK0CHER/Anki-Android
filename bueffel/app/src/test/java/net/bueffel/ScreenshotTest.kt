@@ -315,6 +315,42 @@ class ScreenshotTest {
         capture("13-trace")
     }
 
+    /** The labels that cut across the parts, with one of them picked */
+    @Test
+    fun subtopicsFilteredByTag() {
+        val exam =
+            Deck(
+                id = "klausur",
+                name = "Technische Informatik",
+                subtopics =
+                    listOf(
+                        Subtopic("k-0", "Verkettete Listen", listOf(Card(nodeDelete))),
+                        Subtopic(
+                            "k-1",
+                            "MATLAB",
+                            listOf(
+                                Card(columnVector),
+                                Card(
+                                    Question(
+                                        prompt = "Was liefert size([3 6 2])?",
+                                        answers = listOf("1 3", "3 1", "3"),
+                                        correctIndex = 0,
+                                        tags = listOf("SS25"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+            )
+        composeRule.setContent {
+            BueffelTheme {
+                SubtopicScreen(deck = exam, onOpen = {}, onStudyAll = {}, onBack = {})
+            }
+        }
+        composeRule.onNodeWithText("WS24").performClick()
+        capture("14-tags")
+    }
+
     private companion object {
         const val OUTPUT_DIR = "build/outputs/roborazzi"
     }

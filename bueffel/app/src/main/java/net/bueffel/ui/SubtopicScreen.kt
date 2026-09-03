@@ -2,6 +2,7 @@ package net.bueffel.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +18,14 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +41,11 @@ import net.bueffel.ui.theme.BueffelShape
  * A theory paper is not one subject but a dozen, and knowing the signs are through while right
  * of way is still red is the reason to split them at all. The bar at the top is all of them
  * together, weighted by how many questions each part holds.
+ *
+ * The parts are how a set was written; the tags underneath them cut across it. A set of exam
+ * questions is filed by subject but revised by exam and by kind of exercise - "everything from
+ * WS24", "every Node_Delete variant" - and that is a second question about the same cards, not
+ * a second way of filing them.
  */
 @Composable
 fun SubtopicScreen(
@@ -44,7 +53,13 @@ fun SubtopicScreen(
     onOpen: (Subtopic) -> Unit,
     onStudyAll: () -> Unit,
     onBack: () -> Unit,
+    onStudyTagged: (Set<String>) -> Unit = {},
 ) {
+    // Which labels are being narrowed down to. Held here rather than by the caller: it is the
+    // question this screen asks, and it is answered again every time the screen is opened.
+    val selected = remember(deck.id) { mutableStateListOf<String>() }
+    val tagged = deck.cardsTagged(selected.toSet())
+
     Column(
         modifier =
             Modifier
@@ -95,9 +110,62 @@ fun SubtopicScreen(
             }
         }
 
+        if (deck.tags.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Caption(text = "TAGS")
+            Spacer(Modifier.height(10.dp))
+            TagRow(
+                tags = deck.tags,
+                selected = selected.toSet(),
+                onToggle = { tag -> if (!selected.remove(tag)) selected += tag },
+            )
+        }
+
         Spacer(Modifier.height(16.dp))
-        BueffelButton(text = "Alles gemischt lernen", onClick = onStudyAll)
+        if (selected.isEmpty()) {
+            BueffelButton(text = "Alles gemischt lernen", onClick = onStudyAll)
+        } else {
+            BueffelButton(
+                text = if (tagged.isEmpty()) "Keine Karte mit dieser Auswahl" else "${tagged.size} Karten lernen",
+                enabled = tagged.isNotEmpty(),
+                onClick = { onStudyTagged(selected.toSet()) },
+            )
+        }
         Spacer(Modifier.height(20.dp))
+    }
+}
+
+/**
+ * The topic's labels, on one row that scrolls sideways.
+ *
+ * Sideways rather than wrapped: the row keeps its height whatever the set carries, so the parts
+ * above it do not jump about as tags are picked, and a topic with twenty labels does not push
+ * the button that uses them off the bottom of the screen.
+ */
+@Composable
+private fun TagRow(
+    tags: List<String>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    ) {
+        for (tag in tags) {
+            val on = tag in selected
+            Text(
+                text = tag,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (on) BueffelColors.Background else BueffelColors.TextSecondary,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(BueffelShape.Pill))
+                        .background(if (on) BueffelColors.TextPrimary else BueffelColors.Surface)
+                        .clickable { onToggle(tag) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
     }
 }
 

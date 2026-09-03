@@ -124,6 +124,35 @@ data class Deck(
     val learnedCount: Int get() = cards.count { it.isLearned }
 
     /**
+     * Every label anything in this topic carries, in the order they first turn up.
+     *
+     * Not sorted: the order a set was written in says more than the alphabet does, and a term
+     * that appears on the first card is the one to reach for first.
+     */
+    val tags: List<String> get() = cards.flatMap { it.task.tags }.distinct()
+
+    /**
+     * The cards carrying all of [tags], for studying one corner of a topic.
+     *
+     * Every one of them rather than any: the labels are of different kinds - the exam a question
+     * came from, the sort of exercise it is - and picking one of each is how "the Node_Delete
+     * variants from WS24" gets asked for. Picking two of the same kind narrows to nothing, which
+     * the screen says by counting what is left before anything is started.
+     */
+    fun cardsTagged(tags: Set<String>): List<Card> {
+        if (tags.isEmpty()) return cards
+        return cards.filter { card -> tags.all { it in card.task.tags } }
+    }
+
+    /**
+     * Whether there is anything to pick before studying: more than one part, or any tag.
+     *
+     * A topic with one part and no labels has nothing to ask, so it is opened and started rather
+     * than shown a screen holding a single row and one button.
+     */
+    val hasChoices: Boolean get() = subtopics.size > 1 || tags.isNotEmpty()
+
+    /**
      * The topic's progress, which is its subtopics' progress put together.
      *
      * Counted over every card rather than averaged over the subtopics, so a part with forty

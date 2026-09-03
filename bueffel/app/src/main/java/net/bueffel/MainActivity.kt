@@ -55,10 +55,17 @@ private sealed interface Screen {
         val deckId: String,
     ) : Screen
 
-    /** [subtopicId] null means the whole topic, every part mixed together */
+    /**
+     * [subtopicId] null means the whole topic, every part mixed together.
+     *
+     * [tags] narrows that to the cards carrying all of them; empty is everything. It only
+     * applies to a whole topic, because a filter is a way of cutting across the parts and
+     * cutting across one part is not a thing to ask for.
+     */
     data class Study(
         val deckId: String,
         val subtopicId: String?,
+        val tags: Set<String> = emptySet(),
     ) : Screen
 }
 
@@ -101,8 +108,9 @@ private fun BueffelApp(
     ) {
         keepProgress(deckId, subtopicId, cards)
         val deck = decks.firstOrNull { it.id == deckId }
-        // one part is not worth a screen of its own, so that topic goes straight back to the list
-        screen = if (deck != null && deck.subtopics.size > 1) Screen.Subtopics(deckId) else Screen.Decks
+        // one part and no tags is nothing to choose between, so that topic goes straight back to
+        // the list rather than to a screen holding a single row
+        screen = if (deck != null && deck.hasChoices) Screen.Subtopics(deckId) else Screen.Decks
     }
 
     // Backup and restore go through the system file picker, so the file lands wherever the
@@ -149,13 +157,13 @@ private fun BueffelApp(
             }
         }
 
-    /** A topic with a single part has nothing to choose between: open it and start */
+    /** A topic with one part and no tags has nothing to choose between: open it and start */
     fun open(deck: Deck) {
         screen =
-            if (deck.subtopics.size <= 1) {
-                Screen.Study(deck.id, deck.subtopics.firstOrNull()?.id)
-            } else {
+            if (deck.hasChoices) {
                 Screen.Subtopics(deck.id)
+            } else {
+                Screen.Study(deck.id, deck.subtopics.firstOrNull()?.id)
             }
     }
 
@@ -214,6 +222,7 @@ private fun BueffelApp(
                     onOpen = { screen = Screen.Study(deck.id, it.id) },
                     onStudyAll = { screen = Screen.Study(deck.id, null) },
                     onBack = { screen = Screen.Decks },
+                    onStudyTagged = { screen = Screen.Study(deck.id, null, it) },
                 )
             }
         }
@@ -222,7 +231,7 @@ private fun BueffelApp(
             val deck = decks.firstOrNull { it.id == current.deckId }
             val cards =
                 if (current.subtopicId == null) {
-                    deck?.cards
+                    deck?.cardsTagged(current.tags)
                 } else {
                     deck?.subtopics?.firstOrNull { it.id == current.subtopicId }?.cards
                 }
@@ -232,7 +241,9 @@ private fun BueffelApp(
                 // no BackHandler here: only the screen holds the session, so only it knows what
                 // to write back. Passing these cards would restore the state before studying.
                 StudyScreen(
-                    key = "${deck.id}/${current.subtopicId}",
+                    // the selection is part of what is being studied: picking other tags is a
+                    // different set of cards and therefore a different session
+                    key = "${deck.id}/${current.subtopicId}/${current.tags.sorted()}",
                     cards = cards,
                     soundOn = soundOn,
                     onFinished = { finishStudying(deck.id, current.subtopicId, it) },

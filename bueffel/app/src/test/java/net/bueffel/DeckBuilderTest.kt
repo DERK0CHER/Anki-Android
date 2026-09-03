@@ -6,6 +6,7 @@ import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Tests how imported questions become a topic with its parts, and how the parts add up */
@@ -14,6 +15,63 @@ class DeckBuilderTest {
         prompt: String,
         topic: String? = null,
     ) = Question(prompt = prompt, answers = listOf("eins", "zwei"), correctIndex = 0, topic = topic)
+
+    private fun tagged(
+        prompt: String,
+        vararg tags: String,
+    ) = Question(prompt = prompt, answers = listOf("eins", "zwei"), correctIndex = 0, tags = tags.toList())
+
+    /** One part, three cards, labelled the way a set of exam questions is labelled */
+    private fun labelled() =
+        Deck(
+            id = "d",
+            name = "Klausuren",
+            subtopics =
+                listOf(
+                    Subtopic(
+                        id = "a",
+                        name = "Teil",
+                        cards =
+                            listOf(
+                                Card(tagged("x", "WS24", "Node_Delete")),
+                                Card(tagged("y", "WS24")),
+                                Card(tagged("z", "SS25", "Node_Delete")),
+                            ),
+                    ),
+                ),
+        )
+
+    @Test
+    fun `a topic's tags are the ones its cards carry, in the order they turn up`() {
+        assertEquals(listOf("WS24", "Node_Delete", "SS25"), labelled().tags)
+    }
+
+    @Test
+    fun `two tags ask for the cards carrying both`() {
+        val deck = labelled()
+
+        assertEquals(listOf("x"), deck.cardsTagged(setOf("WS24", "Node_Delete")).map { it.task.prompt })
+        assertEquals(listOf("x", "y"), deck.cardsTagged(setOf("WS24")).map { it.task.prompt })
+        // two of a kind narrow to nothing, which the screen says before anything is started
+        assertEquals(emptyList<String>(), deck.cardsTagged(setOf("WS24", "SS25")).map { it.task.prompt })
+        assertEquals(3, deck.cardsTagged(emptySet()).size)
+    }
+
+    @Test
+    fun `studying a tag selection leaves the cards outside it alone`() {
+        val deck = labelled()
+
+        val studied = deck.cardsTagged(setOf("SS25")).map { it.copy(box = 4) }
+        val updated = deck.withMixedCards(studied)
+
+        assertEquals(listOf(0, 0, 4), updated.cards.map { it.box })
+    }
+
+    @Test
+    fun `one part with tags is still something to choose between`() {
+        assertTrue(labelled().hasChoices)
+        assertTrue(!Deck("d", "Eins", listOf(Subtopic("a", "Teil", listOf(Card(question("x")))))).hasChoices)
+    }
 
     @Test
     fun `questions land in the part they name`() {
