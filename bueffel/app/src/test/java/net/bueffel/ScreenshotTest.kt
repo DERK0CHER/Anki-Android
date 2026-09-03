@@ -205,7 +205,8 @@ class ScreenshotTest {
 
     private val nodeDelete =
         CodeTask(
-            prompt = "Vervollständige node_delete:\n\nvoid node_delete(node_t *n) {\n${CodeTask.GAP}\n}",
+            prompt = "Vervollständige node_delete",
+            given = "void node_delete(node_t *n) {\n${CodeTask.GAP}\n}",
             solution = "    free(n->data);\n    free(n);\n    n = NULL;",
             topic = "Verkettete Listen",
             tags = listOf("WS24"),

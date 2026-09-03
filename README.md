@@ -94,6 +94,11 @@ Regeln:
 - Karten trennt eine Zeile mit nur `---`. Innerhalb eines Codeblocks trennt `---` nicht.
 - Ein Feldwert ist der Rest der Zeile — oder, wenn der leer ist, der Codeblock darunter.
   Einrückung im Block bleibt erhalten.
+- Ein Codeblock unter `front:` ist der Code der Vorderseite und wird in Monospace gesetzt, eine
+  Zeile pro Zeile. Steht auf der `front:`-Zeile zusätzlich Text, ist der die Aufgabe in Prosa und
+  der Block der Code darunter. `given:` schreibt dasselbe ausdrücklich hin.
+- Eine `choice`-Karte darf ebenfalls einen Codeblock vorne haben — das ist die Trace-Aufgabe:
+  Programm oben, drei Ausgaben zur Auswahl.
 - Bei `choice` sind die Antworten Zeilen mit `- `, die richtige mit `*` markiert.
 - `alt:` darf mehrfach vorkommen.
 - `type:` darf fehlen: mit `back:` ist es Code, mit Antwortzeilen Multiple Choice.

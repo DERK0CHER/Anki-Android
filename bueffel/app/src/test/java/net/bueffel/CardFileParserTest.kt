@@ -40,11 +40,73 @@ class CardFileParserTest {
     fun `a code card keeps its block exactly as written`() {
         val task = CardFileParser.parse(nodeDelete).tasks.single() as CodeTask
 
-        assertTrue(task.prompt.contains("void node_delete(node_t *n) {"))
-        assertTrue(task.prompt.contains(CodeTask.GAP))
+        // the front is a fenced block and nothing else, so it is all code and no prose
+        assertEquals("", task.prompt)
+        assertTrue(task.given.orEmpty().contains("void node_delete(node_t *n) {"))
+        assertTrue(task.given.orEmpty().contains(CodeTask.GAP))
         assertEquals(listOf("    free(n->data);", "    free(n);"), task.solutionLines)
         assertEquals("Verkettete Listen", task.topic)
         assertEquals(listOf("WS24", "Node_Delete"), task.tags)
+    }
+
+    @Test
+    fun `a line of prose over a block keeps the prose as the prompt and the block as code`() {
+        val text =
+            """
+            type: code
+            front: Vervollständige node_delete
+            ```c
+            void node_delete(node_t *n) {
+            >>> Hier fehlt was
+            }
+            ```
+            back: free(n);
+            """.trimIndent()
+
+        val task = CardFileParser.parse(text).tasks.single() as CodeTask
+
+        assertEquals("Vervollständige node_delete", task.prompt)
+        assertEquals("void node_delete(node_t *n) {\n${CodeTask.GAP}\n}", task.given)
+        assertEquals(listOf("free(n);"), task.solutionLines)
+    }
+
+    @Test
+    fun `given may be spelled out as its own field`() {
+        val text =
+            """
+            type: code
+            front: Was fehlt?
+            given: int main(void) {
+            back: return 0;
+            """.trimIndent()
+
+        val task = CardFileParser.parse(text).tasks.single() as CodeTask
+
+        assertEquals("Was fehlt?", task.prompt)
+        assertEquals("int main(void) {", task.given)
+    }
+
+    @Test
+    fun `a trace question keeps its program apart from its options`() {
+        val text =
+            """
+            type: choice
+            front:
+            ```c
+            int a = 1 << 3;
+            printf("%d", a);
+            ```
+            - 4
+            - *8
+            - 16
+            """.trimIndent()
+
+        val question = CardFileParser.parse(text).tasks.single() as Question
+
+        assertEquals("", question.prompt)
+        assertTrue(question.given.orEmpty().contains("""printf("%d", a);"""))
+        assertEquals(3, question.answers.size)
+        assertEquals("8", question.correctAnswer)
     }
 
     @Test

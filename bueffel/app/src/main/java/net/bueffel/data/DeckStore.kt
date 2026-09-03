@@ -95,6 +95,7 @@ class DeckStore(
                     .put("hard", card.hard)
                     .put("tags", JSONArray().also { tags -> card.task.tags.forEach(tags::put) })
             card.task.topic?.let { json.put("topic", it) }
+            card.task.given?.let { json.put("given", it) }
             when (val task = card.task) {
                 is Question -> {
                     val answers = JSONArray()
@@ -170,7 +171,10 @@ class DeckStore(
 
     /** A card written before there were card types has no "type" and is a question */
     private fun decodeTask(json: JSONObject): Task? {
-        val prompt = json.optString("prompt").takeIf { it.isNotEmpty() } ?: return null
+        val given = json.optString("given").takeIf { it.isNotEmpty() }
+        val prompt = json.optString("prompt")
+        // a card that is nothing but code has no prompt, and that is not a broken card
+        if (prompt.isEmpty() && given == null) return null
         val topic = json.optString("topic").takeIf { it.isNotEmpty() }
         val tags = decodeStrings(json.optJSONArray("tags"))
         return when (json.optString("type").ifEmpty { CHOICE }) {
@@ -179,6 +183,7 @@ class DeckStore(
                 CodeTask(
                     prompt = prompt,
                     solution = solution,
+                    given = given,
                     alternatives = decodeStrings(json.optJSONArray("alt")),
                     topic = topic,
                     tags = tags,
@@ -193,6 +198,7 @@ class DeckStore(
                     prompt = prompt,
                     answers = answers,
                     correctIndex = correctIndex,
+                    given = given,
                     topic = topic,
                     tags = tags,
                 )
@@ -213,9 +219,13 @@ class DeckStore(
 
         /**
          * 1 was a flat list of cards per deck, 2 groups them into subtopics, 3 gives every card
-         * a type so a card can hold code to write rather than answers to pick.
+         * a type so a card can hold code to write rather than answers to pick, 4 keeps the code
+         * on a card's front apart from its prose so it can be set as code.
+         *
+         * A card saved by 3 has all of its front in the prompt, which still reads and still
+         * works; it is set as prose until the file it came from is imported again.
          */
-        private const val VERSION = 3
+        private const val VERSION = 4
 
         private const val CHOICE = "choice"
         private const val CODE = "code"

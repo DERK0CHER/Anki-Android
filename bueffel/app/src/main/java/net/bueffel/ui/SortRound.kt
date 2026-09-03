@@ -66,11 +66,7 @@ fun SortRound(
         Spacer(Modifier.height(6.dp))
         Caption(text = round)
         Spacer(Modifier.height(14.dp))
-        Text(
-            text = task.prompt,
-            style = MaterialTheme.typography.titleLarge,
-            color = BueffelColors.TextPrimary,
-        )
+        TaskFront(task)
         Spacer(Modifier.height(10.dp))
         Caption(text = "Zeilen in die richtige Reihenfolge ziehen · lang drücken zum Greifen")
         Spacer(Modifier.height(20.dp))

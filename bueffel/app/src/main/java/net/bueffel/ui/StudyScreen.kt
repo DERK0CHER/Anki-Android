@@ -109,6 +109,7 @@ fun StudyScreen(
                         val order = question.answers.indices.shuffled()
                         RoundView(
                             prompt = question.prompt,
+                            given = question.given,
                             answers = order.map { question.answers[it] },
                             correctPosition = order.indexOf(question.correctIndex),
                         )
@@ -278,6 +279,7 @@ private data class Step(
 /** What a multiple choice round shows: the answers already in the order they are drawn */
 private data class RoundView(
     val prompt: String,
+    val given: String?,
     val answers: List<String>,
     val correctPosition: Int,
 )
@@ -325,11 +327,19 @@ private fun Round(
                 Spacer(Modifier.height(6.dp))
                 Caption(text = line)
                 Spacer(Modifier.height(14.dp))
-                Text(
-                    text = view.prompt,
-                    style = MaterialTheme.typography.displaySmall,
-                    color = BueffelColors.TextPrimary,
-                )
+                if (view.prompt.isNotBlank()) {
+                    Text(
+                        text = view.prompt,
+                        style = MaterialTheme.typography.displaySmall,
+                        color = BueffelColors.TextPrimary,
+                    )
+                }
+                // a trace question is a program and three outputs: the program is code and has
+                // to be set as code, or the answer cannot be worked out from it
+                view.given?.let { code ->
+                    if (view.prompt.isNotBlank()) Spacer(Modifier.height(14.dp))
+                    GivenCode(code)
+                }
             }
 
             Column {

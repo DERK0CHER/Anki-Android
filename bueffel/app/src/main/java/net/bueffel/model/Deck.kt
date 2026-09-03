@@ -141,12 +141,12 @@ data class Deck(
         // Each studied card is handed out once. Matching with a plain map keyed on the question
         // would keep only the last of any repeated one, so a question that appears in two parts
         // would get the same result written into both and one part's work would be lost.
-        val waiting = cards.groupBy { it.task.prompt }.mapValues { ArrayDeque(it.value) }
+        val waiting = cards.groupBy { it.task.identity }.mapValues { ArrayDeque(it.value) }
         return copy(
             subtopics =
                 subtopics.map { subtopic ->
                     subtopic.copy(
-                        cards = subtopic.cards.map { waiting[it.task.prompt]?.removeFirstOrNull() ?: it },
+                        cards = subtopic.cards.map { waiting[it.task.identity]?.removeFirstOrNull() ?: it },
                     )
                 },
         )

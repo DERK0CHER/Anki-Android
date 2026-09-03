@@ -110,7 +110,8 @@ class DeckStoreTest {
     fun `a code card survives being written and read back`() {
         val task =
             CodeTask(
-                prompt = "void f() {\n>>> Hier fehlt was\n}",
+                prompt = "Vervollständige f",
+                given = "void f() {\n>>> Hier fehlt was\n}",
                 solution = "    return;",
                 alternatives = listOf("    return 0;"),
                 topic = "Funktionen",

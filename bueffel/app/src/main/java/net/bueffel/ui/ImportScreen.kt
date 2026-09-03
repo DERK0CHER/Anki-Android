@@ -164,12 +164,7 @@ private fun ResultPanel(result: CardImport.Result) {
             Caption(text = if (result.format == CardImport.Format.CardFile) "KARTENDATEI" else "ERSTE FRAGE")
             Spacer(Modifier.height(4.dp))
             Text(
-                text =
-                    result.tasks
-                        .first()
-                        .prompt
-                        .lineSequence()
-                        .first(),
+                text = result.tasks.first().label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = BueffelColors.TextSecondary,
             )
@@ -215,7 +210,7 @@ private fun defaultName(tasks: List<Task>): String {
     val first =
         tasks
             .firstOrNull()
-            ?.prompt
+            ?.label
             .orEmpty()
             .trim()
     if (first.isEmpty()) return "Fragen"

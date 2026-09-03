@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -87,11 +85,7 @@ fun CodeRound(
         Spacer(Modifier.height(6.dp))
         Caption(text = round)
         Spacer(Modifier.height(14.dp))
-        Text(
-            text = task.prompt,
-            style = MaterialTheme.typography.titleLarge,
-            color = BueffelColors.TextPrimary,
-        )
+        TaskFront(task)
         Spacer(Modifier.height(18.dp))
 
         val compared = rows
@@ -128,14 +122,6 @@ fun CodeRound(
         }
         Spacer(Modifier.height(20.dp))
     }
-}
-
-/** Inserts at the cursor, replacing whatever was selected */
-private fun TextFieldValue.insert(text: String): TextFieldValue {
-    val start = selection.min
-    val end = selection.max
-    val updated = this.text.replaceRange(start, end, text)
-    return TextFieldValue(updated, TextRange(start + text.length))
 }
 
 /**
@@ -197,62 +183,6 @@ private fun TextFieldValue.autoIndent(before: TextFieldValue): TextFieldValue {
     if (indent.isEmpty()) return this
     return TextFieldValue(text.replaceRange(at, at, indent), TextRange(at + indent.length))
 }
-
-/** The characters a German phone keyboard hides three menus deep, on one scrolling row */
-@Composable
-private fun SymbolBar(onInsert: (String) -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-    ) {
-        for (symbol in SYMBOLS) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier =
-                    Modifier
-                        .heightIn(min = 40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(BueffelColors.SurfaceRaised)
-                        .clickable { onInsert(symbol.inserts) }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    text = symbol.shows,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = BueffelColors.TextPrimary,
-                )
-            }
-        }
-    }
-}
-
-private data class Symbol(
-    val shows: String,
-    val inserts: String = shows,
-)
-
-private val SYMBOLS =
-    listOf(
-        Symbol("⇥", "    "),
-        Symbol("{"),
-        Symbol("}"),
-        Symbol("("),
-        Symbol(")"),
-        Symbol("["),
-        Symbol("]"),
-        Symbol(";"),
-        Symbol("*"),
-        Symbol("&"),
-        Symbol("->"),
-        Symbol("=="),
-        Symbol("!="),
-        Symbol("<"),
-        Symbol(">"),
-        Symbol("="),
-        Symbol("\""),
-        Symbol("%"),
-    )
 
 /** One line of the comparison, tapped to change what it is worth */
 @Composable

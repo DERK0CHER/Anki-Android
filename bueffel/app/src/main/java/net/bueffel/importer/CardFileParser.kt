@@ -38,6 +38,11 @@ import net.bueffel.model.Task
  * follows. Cards are separated by a line holding nothing but `---`. `alt:` may appear more than
  * once, for the same answer written differently. A block that cannot be read is skipped and
  * counted rather than failing the whole file.
+ *
+ * A fenced block under `front:` is the card's code rather than its prose, whether or not the
+ * `front:` line itself said anything, and it is shown in a monospaced face. Writing `given:`
+ * spells the same thing out. So a card may be all prose, all code, or a line of prose over a
+ * block of code.
  */
 object CardFileParser {
     data class Found(
@@ -102,16 +107,31 @@ object CardFileParser {
             if (inline.isNotEmpty()) {
                 if (key == ALT) alternatives += inline else fields[key] = inline
                 index++
+                // "front: Vervollständige node_delete" with the signature in a block underneath:
+                // the line says what to do, the block is the code, and both are the front
+                if (key == FRONT) {
+                    val (code, after) = readBlock(lines, index)
+                    if (code.isNotEmpty()) {
+                        fields[GIVEN] = code
+                        index = after
+                    }
+                }
                 continue
             }
 
-            // an empty value means the fenced block underneath is the value
+            // an empty value means the fenced block underneath is the value. Under front: that
+            // block is code rather than prose - a fence is what code is written in - so it goes
+            // where the card keeps its code and is set in a monospaced face when it is shown.
             val (block, next) = readBlock(lines, index + 1)
-            if (key == ALT) alternatives += block else fields[key] = block
+            val target = if (key == FRONT) GIVEN else key
+            if (key == ALT) alternatives += block else fields[target] = block
             index = next
         }
 
-        val prompt = fields[FRONT]?.takeIf { it.isNotBlank() } ?: return null
+        val prompt = fields[FRONT]?.takeIf { it.isNotBlank() }.orEmpty()
+        val given = fields[GIVEN]?.takeIf { it.isNotBlank() }
+        // a card has to say something on its front, in prose or in code
+        if (prompt.isEmpty() && given == null) return null
         val topic = fields[TOPIC]?.takeIf { it.isNotBlank() }
         val tags =
             fields[TAGS]
@@ -131,6 +151,7 @@ object CardFileParser {
                     CodeTask(
                         prompt = prompt,
                         solution = back,
+                        given = given,
                         alternatives = alternatives,
                         topic = topic,
                         tags = tags,
@@ -145,6 +166,7 @@ object CardFileParser {
                         prompt = prompt,
                         answers = options,
                         correctIndex = correct,
+                        given = given,
                         topic = topic,
                         tags = tags,
                     )
@@ -180,6 +202,9 @@ object CardFileParser {
     private const val SEPARATOR = "---"
     private const val TYPE = "type"
     private const val FRONT = "front"
+
+    /** The code on the front. Written as a block under `front:`, or spelled out as its own field. */
+    private const val GIVEN = "given"
     private const val BACK = "back"
     private const val ALT = "alt"
     private const val TAGS = "tags"
