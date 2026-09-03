@@ -17,6 +17,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -76,4 +77,13 @@ dependencies {
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.64.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.64.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // On a real device, for the handful of things only a real device decides. These tests drive
+    // the app from outside it - real touch events at real times - because the questions they
+    // answer are about the input system and the clock, and a test that supplies its own of
+    // either would be asking itself.
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:core-ktx:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.0")
 }
