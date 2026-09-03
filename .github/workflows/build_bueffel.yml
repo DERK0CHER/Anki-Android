@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # Same JDK the AnkiDroid build in this repository uses
+      # JetBrains JDK 21, which is what the Gradle and AGP versions below expect
       - name: Configure JDK
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
@@ -92,8 +92,7 @@ jobs:
           tag="bueffel-latest"
           notes="Automatic Büffel build of ${GITHUB_SHA:0:7}.
 
-          Install the release APK. It carries the application id net.bueffel and is
-          unrelated to AnkiDroid, so it sits alongside anything already installed."
+          Install the release APK. It carries the application id net.bueffel."
           gh release delete "$tag" --yes --cleanup-tag || true
           gh release create "$tag" \
             --title "Büffel — latest build" \

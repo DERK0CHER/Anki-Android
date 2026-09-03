@@ -1,4 +1,4 @@
-// Versions are deliberately the same as the AnkiDroid build in this repository:
+// Versions pinned deliberately: this build cannot be run locally, so a resolution that is
 // that combination is known to resolve and compile in CI here.
 //
 // AGP 9 brings Kotlin support itself, so `org.jetbrains.kotlin.android` must NOT be applied;

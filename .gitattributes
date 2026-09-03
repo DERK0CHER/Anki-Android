@@ -3,46 +3,19 @@
 # Last match resolves, so we place the catch-all at the top of the file.
 * text=auto eol=lf
 
-# Text file whose eol is not specified defaults to LF. We only need to
-# explicitly specify when we want CRLF.
-*.awk text
 *.bat text eol=crlf
-*.css text
-*.csv text
 *.gradle text
-*.html text
-*.java text
-*.js text
 *.json text
 *.kt text
 *.kts text
 *.md text
-*.py text
-*.sh text
-*.sql text
-*.toml text
-*.ts text
-*.txt text
+*.pro text
 *.xml text
-*.yaml text
 *.yml text
 
-# Files we want to diff, but not change the line endings.
-*.anki2 -text
-*.crt -text
-*.svg -text
-
 # Binary and compiled files. We want to neither diff nor alter these files.
-*.apkg binary
-*.gz binary
 *.jar binary
-*.mp4 binary
-*.mwb binary
 *.png binary
-*.psd binary
-*.tgz binary
 *.ttf binary
-*.webm binary
-*.woff binary
-*.xcf binary
+*.webp binary
 *.zip binary
