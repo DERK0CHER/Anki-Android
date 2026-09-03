@@ -68,13 +68,25 @@ class SortRoundTest {
         // One event at a time, with the clock moved on in between. The long press waits on the
         // clock rather than on the timestamps of the events, so a gesture sent as one block
         // arrives before the press has been recognised and is thrown away as a scroll.
+        // A long press is waited for on two clocks at once: the coroutine that times it runs on
+        // the test clock, and the timeout is only noticed when a pointer event arrives carrying
+        // a late enough timestamp. So the press has to be held on both - the main clock moved
+        // on, and then an event sent with its own time advanced by as much.
         composeRule.onNodeWithText(top).performTouchInput { down(center) }
         composeRule.mainClock.advanceTimeBy(LONG_PRESS)
-        // the finger moves in steps rather than in one jump, which is both what a finger does
-        // and what the gesture wants: a single event the size of a row is easy to mistake for a
-        // fling that never became a drag
+        composeRule.onNodeWithText(top).performTouchInput {
+            advanceEventTime(LONG_PRESS)
+            moveBy(Offset(0f, 1f))
+        }
+        composeRule.mainClock.advanceTimeBy(50)
+
+        // then the finger moves in steps, which is what a finger does: one jump the size of a
+        // row is easy to mistake for a fling that never became a drag
         repeat(4) {
-            composeRule.onNodeWithText(top).performTouchInput { moveBy(Offset(0f, travel / 4f)) }
+            composeRule.onNodeWithText(top).performTouchInput {
+                advanceEventTime(16)
+                moveBy(Offset(0f, travel / 4f))
+            }
             composeRule.mainClock.advanceTimeBy(16)
         }
         composeRule.onNodeWithText(top).performTouchInput { up() }
