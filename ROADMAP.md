@@ -60,7 +60,19 @@ echten Lauf zu kontrollieren.
 - Greifen per Langdruck, Zeilen tauschen sobald der Finger eine Zeilenhöhe überschritten hat.
 - Zeilen haben feste Höhe (`ROW_HEIGHT = 46.dp`) und scrollen seitwärts statt umzubrechen.
 - Eine vermurkste Sortierung setzt den Zähler auf 0 zurück.
-- **Ungeprüft:** die Drag-Geste selbst. Screenshots sind Standbilder.
+- **Ungeprüft: die Drag-Geste selbst** — und zwar belegt, nicht vermutet. `SortRoundTest` fährt
+  sie an, aber der Long-Press wird unter Robolectric nicht erkannt (drei Varianten probiert:
+  Main-Clock vorspulen, Event-Zeit vorspulen, beides zusammen mit dem Zug in vier Frames — die
+  Zeilen bleiben exakt eine Zeilenhöhe auseinander stehen). Der Test steht als `@Ignore` drin,
+  damit nachvollziehbar ist, was versucht wurde. **Das ist der Fall, für den sich ein Emulator
+  lohnt.**
+- Was dabei trotzdem herauskam: ein echter Fehler. Jede Zeile hatte ihre Geste an ihrer
+  *Position* verschlüsselt (`pointerInput(task, position)`, Zeilen ohne `key`), also hat der
+  erste Tausch die Modifier neu verschlüsselt und die laufende Geste weggeworfen. Auf dem Gerät:
+  Zeile anfassen, sie rutscht **genau ein** Feld, danach passiert nichts mehr, bis man loslässt.
+  Jetzt `key(line)` und `pointerInput(task, line)` — ungeprüft, aber die Ursache ist eindeutig.
+- Die Rechnung „Finger 180 px weiter → Zeile zwei Plätze tiefer" liegt jetzt als `RowDrag` in
+  `domain/` und ist getestet. Für das Gerät bleibt nur noch die Frage, ob die Events ankommen.
 
 ## 3. Tipp-Antwort mit exaktem Vergleich — **erledigt**
 

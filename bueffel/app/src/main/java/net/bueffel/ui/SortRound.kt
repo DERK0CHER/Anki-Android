@@ -31,6 +31,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import net.bueffel.domain.RowDrag
 import net.bueffel.model.CodeTask
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelShape
@@ -112,17 +113,13 @@ fun SortRound(
                                     // itself carries a position, not a delta
                                     onDrag = { _, dragAmount ->
                                         travel += dragAmount.y
-                                        // swapped as soon as the finger has crossed a whole row,
-                                        // and the travel is reduced by that row so it keeps
-                                        // working for a drag across several
                                         val from = dragging
                                         if (from >= 0) {
-                                            val step = (travel / rowPx).toInt()
-                                            val to = (from + step).coerceIn(order.indices)
-                                            if (to != from) {
-                                                order.add(to, order.removeAt(from))
-                                                travel -= (to - from) * rowPx
-                                                dragging = to
+                                            val step = RowDrag.step(from, travel, rowPx, order.size)
+                                            if (step.to != from) {
+                                                order.add(step.to, order.removeAt(from))
+                                                travel = step.travel
+                                                dragging = step.to
                                             }
                                         }
                                     },
