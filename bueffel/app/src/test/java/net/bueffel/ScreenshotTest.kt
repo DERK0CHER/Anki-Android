@@ -454,6 +454,28 @@ class ScreenshotTest {
         capture("17-sketch-answer")
     }
 
+    /**
+     * The wash of colour over the screen when an answer lands, caught while it is there.
+     *
+     * It was written down as unverifiable because Roborazzi photographs a screen that has come
+     * to rest, and by then the wash is gone. That is a stopped clock away: with the test clock
+     * held, the shutter can be opened at the top of the animation instead of after it.
+     */
+    @Test
+    fun studyFlash() {
+        composeRule.mainClock.autoAdvance = false
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(key = "s", cards = listOf(breakdown), soundOn = false, onFinished = {}, onLeave = {})
+            }
+        }
+        composeRule.mainClock.advanceTimeByFrame()
+        composeRule.onNodeWithText("Auf der Fahrbahn stehen bleiben und winken").performClick()
+        // it fades in over 110 ms and away again over 420; this is the peak
+        composeRule.mainClock.advanceTimeBy(110)
+        capture("21-study-flash")
+    }
+
     /** Setting the paper up: how many questions out of each part, and how long there is */
     @Test
     fun examSetup() {
