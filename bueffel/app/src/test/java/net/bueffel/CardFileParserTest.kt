@@ -2,7 +2,10 @@ package net.bueffel
 
 import net.bueffel.importer.CardFileParser
 import net.bueffel.importer.CardImport
+import net.bueffel.model.BitOp
 import net.bueffel.model.CodeTask
+import net.bueffel.model.GenKind
+import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -191,6 +194,51 @@ class CardFileParserTest {
 
         assertTrue(code is CodeTask)
         assertTrue(choice is Question)
+    }
+
+    @Test
+    fun `a generated card names the exercise rather than an instance of it`() {
+        val text =
+            """
+            type: gen
+            topic: Zahlensysteme
+            tags: WS24
+            kind: bits
+            op: ^
+            from: 2
+            to: 16
+            bits: 8
+            """.trimIndent()
+
+        val task = CardFileParser.parse(text).tasks.single() as GeneratedTask
+
+        assertEquals(GenKind.Bits, task.kind)
+        assertEquals(BitOp.Xor, task.op)
+        assertEquals(2, task.from)
+        assertEquals(16, task.to)
+        assertEquals(8, task.bits)
+        assertEquals("Zahlensysteme", task.topic)
+        // it writes its own wording, because there is no one question to write
+        assertTrue(task.prompt.isNotBlank())
+    }
+
+    @Test
+    fun `an operator may be spelled out as well as written`() {
+        val task = CardFileParser.parse("type: gen\nkind: bits\nop: xor").tasks.single() as GeneratedTask
+
+        assertEquals(BitOp.Xor, task.op)
+    }
+
+    @Test
+    fun `a generated card that could not work out its own answer is skipped`() {
+        // %s against a number throws rather than printing something odd, so the card never gets
+        // as far as the study screen
+        val printf = CardFileParser.parse("type: gen\nkind: printf\nop: *\nformat: %s")
+        val nameless = CardFileParser.parse("type: gen\nkind: was auch immer")
+        val opless = CardFileParser.parse("type: gen\nkind: bits")
+
+        assertEquals(0, printf.tasks.size + nameless.tasks.size + opless.tasks.size)
+        assertEquals(3, printf.skipped + nameless.skipped + opless.skipped)
     }
 
     @Test

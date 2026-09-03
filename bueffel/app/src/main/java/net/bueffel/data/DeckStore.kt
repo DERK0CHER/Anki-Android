@@ -1,9 +1,12 @@
 package net.bueffel.data
 
 import android.content.Context
+import net.bueffel.model.BitOp
 import net.bueffel.model.Card
 import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
+import net.bueffel.model.GenKind
+import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
 import net.bueffel.model.Task
@@ -112,6 +115,20 @@ class DeckStore(
                         .put("solution", task.solution)
                         .put("alt", JSONArray().also { alt -> task.alternatives.forEach(alt::put) })
                         .put("sorted", card.sorted)
+
+                is GeneratedTask -> {
+                    json
+                        .put("type", GEN)
+                        .put("kind", task.kind.name)
+                        .put("from", task.from)
+                        .put("to", task.to)
+                        .put("bits", task.bits)
+                        .put("op", task.op.name)
+                        .put("format", task.format)
+                    // the wording it would write for itself is in "prompt" already; only one
+                    // given to it by hand has to survive
+                    task.title?.let { json.put("title", it) }
+                }
             }
             array.put(json)
         }
@@ -173,11 +190,13 @@ class DeckStore(
     private fun decodeTask(json: JSONObject): Task? {
         val given = json.optString("given").takeIf { it.isNotEmpty() }
         val prompt = json.optString("prompt")
-        // a card that is nothing but code has no prompt, and that is not a broken card
-        if (prompt.isEmpty() && given == null) return null
+        val type = json.optString("type").ifEmpty { CHOICE }
+        // a card that is nothing but code has no prompt, and that is not a broken card; a
+        // generated one has none of its own at all
+        if (type != GEN && prompt.isEmpty() && given == null) return null
         val topic = json.optString("topic").takeIf { it.isNotEmpty() }
         val tags = decodeStrings(json.optJSONArray("tags"))
-        return when (json.optString("type").ifEmpty { CHOICE }) {
+        return when (type) {
             CODE -> {
                 val solution = json.optString("solution").takeIf { it.isNotEmpty() } ?: return null
                 CodeTask(
@@ -204,6 +223,24 @@ class DeckStore(
                 )
             }
 
+            GEN -> {
+                // an unknown kind or operator means a file from a newer version or an edited
+                // one; the card is dropped rather than guessed at
+                val kind = GenKind.entries.firstOrNull { it.name == json.optString("kind") } ?: return null
+                val op = BitOp.entries.firstOrNull { it.name == json.optString("op") } ?: return null
+                GeneratedTask(
+                    kind = kind,
+                    from = json.optInt("from", 2),
+                    to = json.optInt("to", 16),
+                    bits = json.optInt("bits", 8),
+                    op = op,
+                    format = json.optString("format").ifEmpty { "%d" },
+                    title = json.optString("title").takeIf { it.isNotEmpty() },
+                    topic = topic,
+                    tags = tags,
+                )
+            }
+
             else -> null
         }
     }
@@ -220,14 +257,16 @@ class DeckStore(
         /**
          * 1 was a flat list of cards per deck, 2 groups them into subtopics, 3 gives every card
          * a type so a card can hold code to write rather than answers to pick, 4 keeps the code
-         * on a card's front apart from its prose so it can be set as code.
+         * on a card's front apart from its prose so it can be set as code, 5 adds the card that
+         * makes its own numbers up.
          *
          * A card saved by 3 has all of its front in the prompt, which still reads and still
          * works; it is set as prose until the file it came from is imported again.
          */
-        private const val VERSION = 4
+        private const val VERSION = 5
 
         private const val CHOICE = "choice"
         private const val CODE = "code"
+        private const val GEN = "gen"
     }
 }

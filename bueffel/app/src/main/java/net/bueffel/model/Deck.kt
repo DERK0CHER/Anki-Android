@@ -25,6 +25,7 @@ data class Card(
     val mode: CardMode
         get() =
             when {
+                task is GeneratedTask -> CardMode.Generate
                 task !is CodeTask -> CardMode.Choose
                 // one line has no order to put it in and nothing to mark line by line: the
                 // editor, the diff and the three marks are all there to handle a function, and
@@ -64,6 +65,9 @@ enum class CardMode {
 
     /** Type the single line it is; right or wrong is decided by comparing the two */
     Type,
+
+    /** Work out the sum the card just made up */
+    Generate,
 }
 
 /**

@@ -58,6 +58,7 @@ import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
 import net.bueffel.model.CardMode
 import net.bueffel.model.CodeTask
+import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelMotion
@@ -239,6 +240,19 @@ fun StudyScreen(
                                 picked = position
                                 if (soundOn) feedback.play(correct = position == choice.correctPosition)
                             }
+                        },
+                    )
+
+                shown.mode == CardMode.Generate ->
+                    GeneratedRound(
+                        task = shown.task as GeneratedTask,
+                        round = target.line,
+                        // the round's own number, so the sum stands still while it is answered
+                        // and is a different one when the card comes back
+                        seed = target.index,
+                        onSubmit = { correct ->
+                            if (soundOn) feedback.play(correct = correct)
+                            record(correct)
                         },
                     )
 

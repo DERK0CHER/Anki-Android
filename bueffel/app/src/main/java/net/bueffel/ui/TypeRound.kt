@@ -56,17 +56,45 @@ fun TypeRound(
     round: String,
     onSubmit: (correct: Boolean) -> Unit,
 ) {
-    var typed by remember(task) { mutableStateOf(TextFieldValue("")) }
-    var verdict by remember(task) { mutableStateOf<Boolean?>(null) }
-    val settled = verdict
-
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(6.dp))
         Caption(text = round)
         Spacer(Modifier.height(14.dp))
         TaskFront(task)
         Spacer(Modifier.height(18.dp))
+        OneLineAnswer(
+            key = task,
+            accepts = { typed -> task.accepted.any { LineDiff.sameLine(typed, it) } },
+            solution = task.solution,
+            onSubmit = onSubmit,
+        )
+        Spacer(Modifier.height(20.dp))
+    }
+}
 
+/**
+ * The field a one-line answer is typed into, the verdict, and the way on.
+ *
+ * Shared by the cards whose model answer is one line and by the ones that make their own sums
+ * up: both are answered the same way, and both are marked by the app rather than by the reader.
+ *
+ * @param key what the field belongs to; a new one empties it and takes the verdict back
+ * @param accepts whether what was typed is right
+ * @param solution shown after a wrong answer, and only then: after a right one it is already on
+ *   the screen, written by the reader
+ */
+@Composable
+fun OneLineAnswer(
+    key: Any,
+    accepts: (String) -> Boolean,
+    solution: String,
+    onSubmit: (correct: Boolean) -> Unit,
+) {
+    var typed by remember(key) { mutableStateOf(TextFieldValue("")) }
+    var verdict by remember(key) { mutableStateOf<Boolean?>(null) }
+    val settled = verdict
+
+    Column(modifier = Modifier.fillMaxWidth()) {
         OneLine(
             value = typed,
             readOnly = settled != null,
@@ -83,10 +111,7 @@ fun TypeRound(
             Spacer(Modifier.height(12.dp))
             SymbolBar(onInsert = { typed = typed.insert(it) })
             Spacer(Modifier.height(18.dp))
-            BueffelButton(
-                text = "Abgeben",
-                onClick = { verdict = task.accepted.any { LineDiff.sameLine(typed.text, it) } },
-            )
+            BueffelButton(text = "Abgeben", onClick = { verdict = accepts(typed.text) })
         } else {
             Spacer(Modifier.height(18.dp))
             Text(
@@ -94,18 +119,15 @@ fun TypeRound(
                 style = MaterialTheme.typography.titleLarge,
                 color = if (settled) BueffelColors.Correct else BueffelColors.Wrong,
             )
-            // the model answer only when it is needed: after a right answer it is already there,
-            // written by the reader, and repeating it says nothing
             if (!settled) {
                 Spacer(Modifier.height(14.dp))
                 Caption(text = "MUSTERLÖSUNG")
                 Spacer(Modifier.height(8.dp))
-                GivenCode(code = task.solution)
+                GivenCode(code = solution)
             }
             Spacer(Modifier.height(18.dp))
             BueffelButton(text = "Weiter", onClick = { onSubmit(settled) })
         }
-        Spacer(Modifier.height(20.dp))
     }
 }
 

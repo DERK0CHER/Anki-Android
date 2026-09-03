@@ -103,6 +103,41 @@ Regeln:
 - `alt:` darf mehrfach vorkommen.
 - `type:` darf fehlen: mit `back:` ist es Code, mit Antwortzeilen Multiple Choice.
 - Die App erkennt selbst, ob in der Zwischenablage eine Kartendatei oder JSON liegt.
+- Einlesen geht aus der Zwischenablage oder direkt aus einer Datei auf dem Gerät.
+
+### Karten, die sich ihre Zahlen selbst würfeln
+
+Umrechnen ist keine Wissensfrage, sondern eine Fertigkeit: eine Karte mit einer festen Aufgabe
+ist nach vier Durchgängen auswendig gelernt. `type: gen` hält deshalb die Aufgabe statt einer
+Ausprägung und würfelt bei jedem Aufruf neu — die App rechnet die Lösung selbst und bewertet auch
+selbst.
+
+    type: gen
+    topic: Zahlensysteme
+    kind: convert
+    from: 2
+    to: 16
+    bits: 8
+    ---
+    type: gen
+    kind: bits
+    op: ^
+    from: 2
+    to: 2
+    bits: 8
+    ---
+    type: gen
+    kind: printf
+    op: *
+    format: %4x
+
+- `kind:` ist `convert` (umrechnen), `bits` (zwei Zahlen mit einem Operator) oder `printf`.
+- `op:` ist ein C-Operator (`& | ^ << >> * + -`) oder sein Name (`xor`, `and`, …).
+- `from:`/`to:` sind die Basen, `bits:` die Breite. Ein Shift schiebt höchstens `bits - 1` weit.
+- `format:` ist der printf-Platzhalter, mit Breite und Nullen: `%4x`, `%04X`, `%-8d`.
+- `front:` darf dabeistehen und ersetzt dann den Text, den sich die Karte selbst schreibt.
+- Antworten werden als Zahl verglichen: `0f`, `f`, `0x0F` und `0000 1111` sind dieselbe Antwort.
+  Nur bei `printf` zählt der Text, weil dort die Nullen die Aufgabe sind.
 
 ## Bauen
 

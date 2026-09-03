@@ -1,6 +1,9 @@
 package net.bueffel.importer
 
+import net.bueffel.model.BitOp
 import net.bueffel.model.CodeTask
+import net.bueffel.model.GenKind
+import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
 import net.bueffel.model.Task
 
@@ -130,8 +133,6 @@ object CardFileParser {
 
         val prompt = fields[FRONT]?.takeIf { it.isNotBlank() }.orEmpty()
         val given = fields[GIVEN]?.takeIf { it.isNotBlank() }
-        // a card has to say something on its front, in prose or in code
-        if (prompt.isEmpty() && given == null) return null
         val topic = fields[TOPIC]?.takeIf { it.isNotBlank() }
         val tags =
             fields[TAGS]
@@ -143,6 +144,9 @@ object CardFileParser {
         val back = fields[BACK]?.takeIf { it.isNotBlank() }
         // the type may be left out: a card with options is a question, one with a back is code
         val type = fields[TYPE]?.lowercase() ?: if (back != null) CODE else CHOICE
+        // a card has to say something on its front, in prose or in code - except a generated
+        // one, which writes its own wording and its own numbers
+        if (type != GEN && prompt.isEmpty() && given == null) return null
         return when (type) {
             CODE ->
                 if (back == null) {
@@ -172,8 +176,50 @@ object CardFileParser {
                     )
                 }
 
+            GEN -> generated(fields, prompt.takeIf { it.isNotBlank() }, topic, tags)
+
             else -> null
         }
+    }
+
+    /**
+     * A card that names an exercise rather than an instance of it.
+     *
+     * Everything is a field of its own instead of a small language of its own: `kind: bits` and
+     * `op: ^` are duller to write than `bits xor 8`, but a line noise parser would be another
+     * thing to get wrong at two in the morning, and this file is written by hand.
+     */
+    private fun generated(
+        fields: Map<String, String>,
+        title: String?,
+        topic: String?,
+        tags: List<String>,
+    ): Task? {
+        val kind =
+            when (fields[KIND]?.lowercase()?.trim()) {
+                "convert", "wandeln" -> GenKind.Convert
+                "bits", "rechnen" -> GenKind.Bits
+                "printf" -> GenKind.Printf
+                else -> return null
+            }
+        val written = fields[OP]?.trim()
+        val op = BitOp.entries.firstOrNull { it.symbol == written || it.name.equals(written, ignoreCase = true) }
+        val format = fields[FORMAT]?.trim() ?: "%d"
+        // a card that would throw when its answer is worked out is no card at all: it is
+        // skipped and counted here, where the count is shown, rather than in the study screen
+        if (kind != GenKind.Convert && op == null) return null
+        if (kind == GenKind.Printf && !GeneratedTask.formatIsSound(format)) return null
+        return GeneratedTask(
+            kind = kind,
+            from = fields[FROM]?.trim()?.toIntOrNull() ?: 2,
+            to = fields[TO]?.trim()?.toIntOrNull() ?: 16,
+            bits = fields[BITS]?.trim()?.toIntOrNull() ?: 8,
+            op = op ?: BitOp.And,
+            format = format,
+            title = title,
+            topic = topic,
+            tags = tags,
+        )
     }
 
     /** Reads a fenced block starting at [from], and says where it ended */
@@ -211,4 +257,12 @@ object CardFileParser {
     private const val TOPIC = "topic"
     private const val CODE = "code"
     private const val CHOICE = "choice"
+
+    private const val GEN = "gen"
+    private const val KIND = "kind"
+    private const val FROM = "from"
+    private const val TO = "to"
+    private const val BITS = "bits"
+    private const val OP = "op"
+    private const val FORMAT = "format"
 }

@@ -8,6 +8,8 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import net.bueffel.model.Card
 import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
+import net.bueffel.model.GenKind
+import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
 import net.bueffel.ui.DeckListScreen
@@ -349,6 +351,32 @@ class ScreenshotTest {
         }
         composeRule.onNodeWithText("WS24").performClick()
         capture("14-tags")
+    }
+
+    /** A card that made its own sum up, which is a different sum every time it is asked */
+    @Test
+    fun generatedRound() {
+        val toHex =
+            GeneratedTask(
+                kind = GenKind.Convert,
+                from = 2,
+                to = 16,
+                bits = 8,
+                topic = "Zahlensysteme",
+                tags = listOf("WS24"),
+            )
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "gen",
+                    cards = listOf(Card(toHex)),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                )
+            }
+        }
+        capture("15-generated")
     }
 
     private companion object {

@@ -1,9 +1,12 @@
 package net.bueffel
 
 import net.bueffel.data.DeckStore
+import net.bueffel.model.BitOp
 import net.bueffel.model.Card
 import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
+import net.bueffel.model.GenKind
+import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
 import org.junit.Assert.assertEquals
@@ -104,6 +107,45 @@ class DeckStoreTest {
         assertEquals("Altes Thema", loaded.subtopics.single().name)
         assertEquals(3, loaded.cards.single().box)
         assertTrue(!loaded.cards.single().hard)
+    }
+
+    @Test
+    fun `a generated card survives being written and read back`() {
+        val task =
+            GeneratedTask(
+                kind = GenKind.Printf,
+                op = BitOp.Times,
+                format = "%4x",
+                title = "Was gibt printf aus?",
+                topic = "C",
+                tags = listOf("WS24"),
+            )
+        val decks = listOf(Deck("a", "Thema", listOf(Subtopic("a-0", "Teil", listOf(Card(task, box = 2))))))
+
+        store.save(decks)
+
+        val loaded =
+            store
+                .load()
+                .single()
+                .cards
+                .single()
+        assertEquals(task, loaded.task)
+        assertEquals(2, loaded.box)
+    }
+
+    @Test
+    fun `a generated card with a kind this version does not know is dropped`() {
+        // a file from a newer version, or one edited by hand: guessing at it would ask a
+        // question nobody wrote
+        val text = """{"version":5,"decks":[{"id":"a","name":"T","subtopics":[{"id":"a-0","name":"P","cards":[
+            {"type":"gen","prompt":"x","kind":"Fourier","op":"And"}]}]}]}"""
+
+        val restored = store.restore(emptyList(), text)
+
+        // the topic comes back, the card it could not read does not
+        assertEquals(1, restored.size)
+        assertEquals(0, restored.single().cards.size)
     }
 
     @Test
