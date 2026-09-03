@@ -430,7 +430,7 @@ fun ExamResult(
                         )
                     }
                     Spacer(Modifier.height(4.dp))
-                    Caption(text = "${block.questions} Fragen")
+                    Caption(text = questionCount(block.questions))
                     Spacer(Modifier.height(14.dp))
                     ProgressBar(fraction = fraction(block.points, block.maxPoints), height = 10.dp)
                 }

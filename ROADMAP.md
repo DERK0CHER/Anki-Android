@@ -14,8 +14,8 @@ verifizieren (kein Emulator, kein Ton) und ist beim ersten echten Lauf zu kontro
 | 3 Tipp-Antwort exakt | erledigt |
 | 4 Generator-Karten | erledigt |
 | 5 Trace-Karten | erledigt |
-| 6 Bilder | offen |
-| 7 Klausurmodus | offen |
+| 6 Bilder | erledigt |
+| 7 Klausurmodus | erledigt |
 | 8 FSRS/SM-2 | offen |
 | 9 Tags als Filter | erledigt |
 | 10 Import aus Datei | erledigt, CSV bewusst nicht |
@@ -111,32 +111,55 @@ Fällt aus 1, 3 und der Vorderseitentrennung heraus:
 - Ausgabe tippen: `type: code` mit dem Programm unter `front:` und der Ausgabe als `back:`.
   Einzeilige Ausgabe landet automatisch im Einzeiler-Modus.
 
-## 6. Bild auf Vorder- und Rückseite — **offen**
+## 6. Bild auf Vorder- und Rückseite — **erledigt**
 
 > Damit "Activity Chart → C" (Bild vorne, Editor hinten) und "C → Activity Chart" (Code vorne,
 > Lösungsbild hinten, Zeichnen auf Papier, Selbstbewertung) funktionieren.
 
-Braucht Bilder im Speicher. Vorschlag, der zum jetzigen Stand passt:
+`data/ImageStore.kt`, `Task.image`, `model/Task.kt` → `SketchTask`, `ui/CardPicture.kt`,
+`ui/RevealRound.kt`, `CardMode.Reveal`.
 
-- `Task.image` für die Vorderseite — damit können Choice-, Code- und Generator-Karten alle ein
-  Bild tragen, ohne einen neuen Typ.
-- Ein neuer Typ für die andere Richtung: Vorderseite normal, Lösung ist ein Bild (oder Prosa),
-  Selbstbewertung „konnte ich / konnte ich nicht". Das ist zugleich der fehlende schlichte
-  Karteikartenmodus.
-- Dateien nach `filesDir/images/`, in der Karte steht nur der Dateiname. Der relative Pfad aus
-  der ursprünglichen Idee geht **nicht**: der Dateidialog gibt eine `content://`-URI zurück, aus
-  der sich das Nachbarverzeichnis nicht ableiten lässt. Also entweder Bilder getrennt einlesen
-  (Mehrfachauswahl im Import-Screen) oder mit `OpenDocumentTree` gleich einen Ordner wählen.
-  Getrennt einlesen ist weniger Code und robuster.
+- `image:` geht bei **jedem** Kartentyp — das ist die Richtung „Bild vorne, Editor hinten".
+- `type: sketch` mit `answerimage:` (oder `answer:` für Prosa) ist die andere Richtung: Aufgabe,
+  „Lösung zeigen", „Hatte ich" / „Hatte ich nicht". Zugleich der schlichte Karteikartenmodus,
+  den die App nicht hatte.
+- Bilder liegen in `filesDir/images/`, in der Karte steht nur der Dateiname. Der relative Pfad
+  aus der ursprünglichen Idee geht **nicht**: der Dateidialog liefert eine `content://`-URI, aus
+  der kein Nachbarverzeichnis erreichbar ist. Deshalb Mehrfachauswahl im Import-Screen (Schritt
+  3) und Ablage unter dem Dateinamen.
+- Namen werden aufgeräumt (klein, nur `a-z0-9.-_`), damit `Activity Chart.PNG` und
+  `activity-chart.png` dieselbe Datei finden und keine Karte aus dem Verzeichnis herauszeigen
+  kann.
+- Große Bilder werden beim Laden heruntergerechnet (`ImageStore.load`), sonst liegt ein
+  Handyfoto mit 60 MB im Speicher für eine Karte von 400 px Breite.
+- Der `ImageStore` hängt an einem CompositionLocal (`LocalImages`) statt durch fünf Signaturen
+  gereicht zu werden. Ohne ihn — also in jedem Test — zeichnet die Karte die Fehlt-Platte.
+- Screenshots: `16-sketch.png`, `17-sketch-answer.png`.
 
-## 7. Klausurmodus — **offen**
+## 7. Klausurmodus — **erledigt**
 
 > Gewichtete Ziehung nach Subsection (z. B. 25 SC, 4 Theorie, 5 Programmieraufgaben, 20 MATLAB),
 > 120-Minuten-Countdown, kein Umdrehen bis zur Abgabe, Auswertung mit Punkten pro Block.
 
-Umgeht `StudySession` komplett: eigene Ziehung, kein Box-System, keine Runden. Sinnvoll als
-zweite Domänenklasse neben `StudySession` statt als Flag darin. Die Punkte pro Block gibt es
-schon in `Marking`; für Multiple Choice fehlt eine Punktzahl pro Frage.
+`domain/Exam.kt`, `ui/ExamSetupScreen.kt`, `ui/ExamScreen.kt`. Einstieg: Knopf „Klausur" unter
+den Bereichen.
+
+- Ziehung nach Plan, ein Slider pro Bereich plus Zeit. Ein Bereich mit zu wenigen Karten gibt,
+  was er hat, statt den Start zu verweigern.
+- Während der Klausur sagt die App **nichts**: angekreuzt wird grau, kein Richtig/Falsch, und
+  man kann vor und zurück blättern.
+- Die Uhr zählt eigene Ticks und nimmt die Wanduhr, wann immer die weniger sagt. Nur Ticks
+  würde stehen bleiben, während die App weggelegt ist; nur Wanduhr würde in einem Test nie
+  ablaufen. **Ungeprüft:** ob Android die Ticks im Hintergrund wirklich anhält.
+- Bewertet wird nach der Abgabe und nur, was die App nicht selbst kann: geschriebene Funktionen
+  zeilenweise (dieselbe Bewertung wie im Lernmodus, jetzt geteilt statt zweimal geschrieben),
+  Zeichnungen per Augenschein.
+- **Kein Rückschreiben in die Boxen.** Eine Probeklausur ist eine Messung; eine, die verschiebt,
+  was sie misst, ist weniger wert als keine.
+- Punkte: geschriebene Funktion = eine pro Musterlösungszeile, alles andere = eine. Das ist
+  geraten; eine Klausur mit anderer Gewichtung bräuchte das im Plan.
+- Ergebnisse werden **nicht gespeichert** — es gibt keinen Verlauf. Wäre ein eigener Store.
+- Screenshots: `18-exam-setup.png`, `19-exam.png`, `20-exam-result.png`.
 
 ## 8. Spaced Repetition — **offen**
 

@@ -119,10 +119,10 @@ fun BueffelButton(
 fun countLine(
     questions: Int,
     learned: Int,
-): String {
-    val word = if (questions == 1) "Frage" else "Fragen"
-    return "$questions $word · $learned sicher"
-}
+): String = "${questionCount(questions)} · $learned sicher"
+
+/** "1 Frage", "12 Fragen". Trivial, and it has now been got wrong in three places. */
+fun questionCount(questions: Int): String = "$questions ${if (questions == 1) "Frage" else "Fragen"}"
 
 /** A small caption above a block, in the grey the reference screens use for secondary text */
 @Composable
