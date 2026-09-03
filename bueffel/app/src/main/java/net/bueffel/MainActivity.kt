@@ -142,6 +142,16 @@ private fun BueffelApp(
         )
     }
 
+    /**
+     * What a session gets to ask: what the schedule says is due, or - when nothing is - the lot.
+     *
+     * The schedule has the last word about what is *worth* asking and none at all about whether
+     * the app may be used. Every screen that leads here says what is due before it is tapped, so
+     * opening a set that has nothing due is a deliberate act, and answering it with an empty
+     * session would be absurd.
+     */
+    fun toStudy(cards: List<Card>): List<Card> = Schedule.due(cards).ifEmpty { Schedule.forReview(cards) }
+
     /** Writes it back and steps out of the study screen */
     fun finishStudying(
         deckId: String,
@@ -330,17 +340,14 @@ private fun BueffelApp(
 
         is Screen.Study -> {
             val deck = decks.firstOrNull { it.id == current.deckId }
-            // What the session gets to ask. The schedule has the last word: everything still
-            // being learned, plus the reviews that have come round, and nothing else - the
-            // point of a date is that a card is not worth asking before it.
             val part = deck?.subtopics?.firstOrNull { it.id == current.subtopicId }?.cards
             val cards =
                 when {
                     deck == null -> null
                     current.pick == Pick.Leeches -> Schedule.forReview(deck.leeches)
-                    current.subtopicId == null -> Schedule.due(deck.cardsTagged(current.tags))
+                    current.subtopicId == null -> toStudy(deck.cardsTagged(current.tags))
                     part == null -> null
-                    else -> Schedule.due(part)
+                    else -> toStudy(part)
                 }
             if (deck == null || cards == null) {
                 LaunchedEffect(current) { screen = Screen.Decks }

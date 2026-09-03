@@ -3,9 +3,10 @@
 Die zehn Punkte in der Reihenfolge, in der sie gestellt wurden — Reihenfolge ist Priorität.
 Erledigtes steht mit dabei, damit klar ist, worauf aufgesetzt wird.
 
-Stand: Kopf von `claude/anki-multiple-choice-buttons-xss2q6`. Was hier als erledigt steht, ist
-gebaut und durch Tests belegt; was als **ungeprüft** markiert ist, ließ sich ohne Gerät nicht
-verifizieren (kein Emulator, kein Ton) und ist beim ersten echten Lauf zu kontrollieren.
+Alle zehn Punkte sind gebaut. Stand: Kopf von `claude/anki-multiple-choice-buttons-xss2q6`.
+Was hier als erledigt steht, ist gebaut und durch Tests belegt; was als **ungeprüft** markiert
+ist, ließ sich ohne Gerät nicht verifizieren (kein Emulator, kein Ton) und ist beim ersten
+echten Lauf zu kontrollieren.
 
 | Punkt | Stand |
 | --- | --- |
@@ -16,7 +17,7 @@ verifizieren (kein Emulator, kein Ton) und ist beim ersten echten Lauf zu kontro
 | 5 Trace-Karten | erledigt |
 | 6 Bilder | erledigt |
 | 7 Klausurmodus | erledigt |
-| 8 FSRS/SM-2 | offen |
+| 8 FSRS/SM-2 | erledigt (SM-2) |
 | 9 Tags als Filter | erledigt |
 | 10 Import aus Datei | erledigt, CSV bewusst nicht |
 
@@ -161,15 +162,36 @@ den Bereichen.
 - Ergebnisse werden **nicht gespeichert** — es gibt keinen Verlauf. Wäre ein eigener Store.
 - Screenshots: `18-exam-setup.png`, `19-exam.png`, `20-exam-result.png`.
 
-## 8. Spaced Repetition — **offen**
+## 8. Spaced Repetition — **erledigt**
 
 > FSRS oder SM-2 mit Statistik pro Subsection, Leech-Erkennung (Karte 5× falsch → separate
 > Liste), und Zeit pro Karte protokollieren.
 
-Ersetzt `StudySession.GAPS` und die Runden-Logik durch echte Intervalle mit Datum. Das ist der
-größte Eingriff der Liste: aktuell ist alles sitzungslokal und kennt keine Uhr. Braucht
-`Card.due`, `Card.stability`, `Card.lapses` und eine Historie pro Antwort — und damit auch eine
-Speicherversion 7 und eine Entscheidung, was mit den bestehenden Boxen passiert.
+`domain/Schedule.kt`, `Card.due/interval/ease/lapses/seconds`, Speicherversion 7.
+
+- **SM-2, nicht FSRS.** FSRS ist besser, und zwar weil es siebzehn Parameter an eine
+  Antworthistorie anpasst, die diese App nicht hat und die ein Semester bräuchte. SM-2 braucht
+  nur die Karte selbst und ist ein Dutzend Zeilen. Beide hängen an derselben Stelle ein, falls
+  die Historie irgendwann existiert.
+- **Bewertet wird die Sitzung, nicht die Antwort.** SM-2 bewertet eine Wiederholung, und eine
+  Wiederholung ist hier nicht eine Frage: die Sitzung fragt eine Karte, bis sie mehrfach
+  hintereinander saß. Also zählt, ob sie *irgendwo* in der Sitzung falsch war.
+- Intervalle: 1 Tag, 6 Tage, danach × Ease. Ease startet bei 2,5, steigt um 0,1, fällt um 0,2,
+  Boden 1,3, Deckel 2,8; Intervall gedeckelt bei 180 Tagen.
+- Eine fällige Karte kommt bei `REVIEW_BOX = 3` zurück, also eine richtige Antwort vor dem Ziel
+  der ersten Runde — dadurch wird sie früh gefragt und danach normal mitgeschleift.
+- **Leech**: 5× verloren → eigene Liste (Knopf im Bereichs-Screen) und automatisch `hard`,
+  wodurch sie innerhalb einer Sitzung doppelt so oft drankommt. Die eigentliche Antwort auf eine
+  Leech ist trotzdem, die Karte neu zu schreiben.
+- **Zeit pro Karte** wird mitgeschrieben und bei 5 Minuten gedeckelt (`MAX_SECONDS`), sonst
+  behauptet eine weggelegte Karte zwei Stunden. Angezeigt als „34 min geübt" pro Thema.
+- Deck-Liste und Bereiche zeigen „12 fällig" bzw. „in 3 Tagen wieder".
+- Wenn **nichts** fällig ist und du trotzdem draufdrückst, wird alles gelernt statt einer leeren
+  Sitzung (`MainActivity.toStudy`). Der Plan sagt, was sich lohnt, nicht ob du darfst.
+- Alte Dateien haben kein Datum → alles sofort fällig. Für ein Set, das seit Wochen daliegt, ist
+  das die richtige Antwort.
+- **Statistik pro Subsection** ist bewusst klein: fällig, sicher, Fortschritt, Zeit. Ein Verlauf
+  über Tage bräuchte einen zweiten Speicher.
 
 ## 9. Tags als Filter — **erledigt**
 
@@ -214,13 +236,21 @@ Speicherversion 7 und eine Entscheidung, was mit den bestehenden Boxen passiert.
 - **Tastatur-Insets** im Import-Screen und in den beiden Tippmodi.
 - **Der Dateidialog** beim Import: dass die Datei ankommt, ist Code; dass dein Dateimanager sie
   anbietet, ist Gerätesache.
+- **Die Klausuruhr im Hintergrund.** Sie zählt Ticks über `delay`, und Android hält den
+  Frame-Takt an, während das Fenster nicht sichtbar ist. Die Wanduhr-Korrektur fängt das beim
+  Zurückkommen ab — aber ob die Uhr wirklich weiterläuft, während du die App weglegst, ist eine
+  Gerätefrage.
+- **Mitternacht.** `Schedule.today()` wird beim Öffnen eines Screens einmal gelesen. Wer um
+  23:59 anfängt, lernt die Karten von gestern zu Ende. Das ist gewollt und trotzdem eine
+  Stelle, an der man sich wundern kann.
 
 ## Speicherversionen
 
 `data/DeckStore.kt`, Konstante `VERSION`. 1 flache Kartenliste, 2 Bereiche, 3 Kartentypen,
-4 Code auf der Vorderseite getrennt, 5 Generator-Karten. Alte Dateien werden weiter gelesen; eine
-Karte aus Version ≤ 3 trägt ihre ganze Vorderseite im `prompt` und wird als Prosa gesetzt, bis
-die Kartendatei neu importiert wird.
+4 Code auf der Vorderseite getrennt, 5 Generator-Karten, 6 Bilder und Papierkarten, 7 Termine.
+Alte Dateien werden weiter gelesen; eine Karte aus Version ≤ 3 trägt ihre ganze Vorderseite im
+`prompt` und wird als Prosa gesetzt, bis die Kartendatei neu importiert wird, und eine aus ≤ 6
+hat kein Datum und ist damit sofort fällig.
 
 ## Lokal weiterarbeiten
 
@@ -240,6 +270,11 @@ lohnt das ktlint-Gradle-Plugin.
 - Kein Abzug = richtig (Punkt 1). Eventuell zu streng.
 - Zwei Tags heißen „beide" (Punkt 9).
 - Einzeiler kommen nie in den Sortiermodus, auch nicht am Anfang (Punkt 3).
+- Bewertet wird die **Sitzung**, nicht die einzelne Antwort (Punkt 8). Ein Ausrutscher am
+  Anfang kostet die Karte also das lange Intervall, auch wenn sie danach zehnmal saß.
+- Eine Karte kommt nach der Wiederholung bei Box 3 zurück, nicht bei 0 und nicht bei 8.
+- Der Klausurmodus schreibt **nichts** zurück. Wer nach einer Probeklausur Fortschritt sehen
+  will, wird enttäuscht sein — das ist Absicht.
 - `ROUNDS = listOf(4, 6, 8)` und `CURVE = 1.25` — die Kurve legt 4× richtig auf 60 %, 6× auf 82 %.
 - `WORKING_SET = 12` Fragen in Rotation, `NEW_EVERY = 4` Antworten bis eine neue eingemischt wird.
 - Sichern/Laden **merged** statt zu überschreiben, damit ein Fehlgriff die App nicht leerräumt.

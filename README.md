@@ -167,6 +167,27 @@ selbst.
   beides stehen.
 - Fehlt ein Bild, sagt die Karte das und nennt den Dateinamen, statt leer zu bleiben.
 
+## Wann eine Karte wiederkommt
+
+Eine Sitzung fragt in Runden: erst alles auf 4× richtig hintereinander, dann auf 6, dann auf 8.
+Das ist die richtige Einheit für einen Abend. Für ein Semester ist sie es nicht — was heute sitzt,
+ist in zwei Wochen weg. Also bekommt jede Karte, die am Ende der Leiter ankommt, ein Datum
+(SM-2: 1 Tag, 6 Tage, danach × Ease), und eine Sitzung fragt das, was fällig ist.
+
+- Bewertet wird die **Sitzung**: ob die Karte irgendwo darin falsch war, nicht die letzte Antwort.
+- Eine fällige Karte kommt bei Box 3 zurück, wird also früh in der Sitzung gefragt.
+- 5× verloren = Leech: eigene Liste im Bereichs-Screen und automatisch als „schwer" markiert.
+- Ist nichts fällig, sagt der Screen, wann wieder — und lernt trotzdem alles, wenn du drückst.
+- Die Zeit pro Karte wird mitgeschrieben (gedeckelt bei 5 Minuten) und pro Thema angezeigt.
+
+## Klausurmodus
+
+Unter den Bereichen: ein Schieber pro Bereich für die Anzahl, einer für die Zeit. Während der
+Klausur sagt die App nichts — Angekreuztes wird grau, kein Richtig/Falsch, vor und zurück
+blättern geht. Nach der Abgabe wird bewertet, was die App nicht selbst kann (geschriebene
+Funktionen zeilenweise, Zeichnungen per Augenschein), danach kommen die Punkte pro Block.
+In die Boxen wird **nichts** zurückgeschrieben.
+
 ## Bauen
 
 ```sh
