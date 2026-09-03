@@ -104,8 +104,10 @@ fun SortRound(
                                     dragging = -1
                                     travel = 0f
                                 },
-                                onDrag = { change, _ ->
-                                    travel += change.y
+                                // the drag distance is the second parameter; the change itself
+                                // carries a position, not a delta
+                                onDrag = { _, dragAmount ->
+                                    travel += dragAmount.y
                                     // swapped as soon as the finger has crossed a whole row, and
                                     // the travel is reduced by that row so it keeps working for
                                     // a drag across several
