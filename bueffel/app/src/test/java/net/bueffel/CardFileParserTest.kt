@@ -7,6 +7,7 @@ import net.bueffel.model.CodeTask
 import net.bueffel.model.GenKind
 import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
+import net.bueffel.model.SketchTask
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -239,6 +240,65 @@ class CardFileParserTest {
 
         assertEquals(0, printf.tasks.size + nameless.tasks.size + opless.tasks.size)
         assertEquals(3, printf.skipped + nameless.skipped + opless.skipped)
+    }
+
+    @Test
+    fun `a card whose answer is a picture is one to answer on paper`() {
+        val text =
+            """
+            type: sketch
+            topic: UML
+            front: Zeichne das Activity Chart zu node_delete
+            answerimage: node-delete.png
+            """.trimIndent()
+
+        val task = CardFileParser.parse(text).tasks.single() as SketchTask
+
+        assertEquals("node-delete.png", task.answerImage)
+        assertEquals("UML", task.topic)
+        assertTrue(task.hasAnswer)
+    }
+
+    @Test
+    fun `the type is worked out from an answer that is a picture or a paragraph`() {
+        val drawn = CardFileParser.parse("front: Zeichne es\nanswerimage: x.png").tasks.single()
+        val prose = CardFileParser.parse("front: Was ist ein Semaphor?\nanswer: Ein Zähler mit ...").tasks.single()
+
+        assertTrue(drawn is SketchTask)
+        assertTrue(prose is SketchTask)
+    }
+
+    @Test
+    fun `a picture on the front is a field like any other`() {
+        val text =
+            """
+            front: Was tut dieses Diagramm?
+            image: chart.png
+            - Es löscht einen Knoten
+            - *Es fügt einen Knoten ein
+            """.trimIndent()
+
+        val question = CardFileParser.parse(text).tasks.single() as Question
+
+        assertEquals("chart.png", question.image)
+        assertEquals(2, question.answers.size)
+    }
+
+    @Test
+    fun `a card that would be turned over onto nothing is skipped`() {
+        val found = CardFileParser.parse("type: sketch\nfront: Und dann?")
+
+        assertEquals(0, found.tasks.size)
+        assertEquals(1, found.skipped)
+    }
+
+    @Test
+    fun `a card that is nothing but a picture still has a front`() {
+        val task = CardFileParser.parse("image: chart.png\nanswer: Ein Aktivitätsdiagramm").tasks.single()
+
+        assertEquals("chart.png", task.image)
+        // the list has to call it something, and the picture is all it has
+        assertEquals("chart.png", task.label)
     }
 
     @Test

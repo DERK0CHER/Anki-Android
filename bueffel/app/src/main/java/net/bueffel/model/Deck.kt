@@ -26,6 +26,7 @@ data class Card(
         get() =
             when {
                 task is GeneratedTask -> CardMode.Generate
+                task is SketchTask -> CardMode.Reveal
                 task !is CodeTask -> CardMode.Choose
                 // one line has no order to put it in and nothing to mark line by line: the
                 // editor, the diff and the three marks are all there to handle a function, and
@@ -68,6 +69,9 @@ enum class CardMode {
 
     /** Work out the sum the card just made up */
     Generate,
+
+    /** Answer it on paper, then look at the answer and say whether you had it */
+    Reveal,
 }
 
 /**

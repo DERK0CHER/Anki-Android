@@ -52,6 +52,8 @@ fun ImportScreen(
     onImport: (name: String, tasks: List<Task>) -> Unit,
     onPickFile: () -> Unit = {},
     fileText: String? = null,
+    onPickImages: () -> Unit = {},
+    picturesAdded: Int = 0,
 ) {
     val clipboard = LocalClipboardManager.current
     var parsed by remember { mutableStateOf<CardImport.Result?>(null) }
@@ -122,6 +124,17 @@ fun ImportScreen(
             BueffelButton(
                 text = "Kartendatei vom Gerät öffnen",
                 onClick = onPickFile,
+                filled = false,
+            )
+
+            Spacer(Modifier.height(28.dp))
+            StepLabel(number = "3", text = "Bilder dazu, falls Karten welche nennen")
+            Spacer(Modifier.height(14.dp))
+            // The pictures are added on their own and filed under their own names, because a
+            // card file arrives as a content:// URI and nothing can be found relative to that.
+            BueffelButton(
+                text = if (picturesAdded > 0) "$picturesAdded Bilder hinzugefügt ✓" else "Bilder hinzufügen",
+                onClick = onPickImages,
                 filled = false,
             )
 

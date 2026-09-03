@@ -8,6 +8,7 @@ import net.bueffel.model.Deck
 import net.bueffel.model.GenKind
 import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
+import net.bueffel.model.SketchTask
 import net.bueffel.model.Subtopic
 import net.bueffel.model.Task
 import org.json.JSONArray
@@ -99,6 +100,7 @@ class DeckStore(
                     .put("tags", JSONArray().also { tags -> card.task.tags.forEach(tags::put) })
             card.task.topic?.let { json.put("topic", it) }
             card.task.given?.let { json.put("given", it) }
+            card.task.image?.let { json.put("image", it) }
             when (val task = card.task) {
                 is Question -> {
                     val answers = JSONArray()
@@ -115,6 +117,12 @@ class DeckStore(
                         .put("solution", task.solution)
                         .put("alt", JSONArray().also { alt -> task.alternatives.forEach(alt::put) })
                         .put("sorted", card.sorted)
+
+                is SketchTask -> {
+                    json.put("type", SKETCH)
+                    task.answerImage?.let { json.put("answerImage", it) }
+                    task.answer?.let { json.put("answer", it) }
+                }
 
                 is GeneratedTask -> {
                     json
@@ -189,11 +197,12 @@ class DeckStore(
     /** A card written before there were card types has no "type" and is a question */
     private fun decodeTask(json: JSONObject): Task? {
         val given = json.optString("given").takeIf { it.isNotEmpty() }
+        val image = json.optString("image").takeIf { it.isNotEmpty() }
         val prompt = json.optString("prompt")
         val type = json.optString("type").ifEmpty { CHOICE }
-        // a card that is nothing but code has no prompt, and that is not a broken card; a
-        // generated one has none of its own at all
-        if (type != GEN && prompt.isEmpty() && given == null) return null
+        // a card that is nothing but code or a picture has no prompt, and that is not a broken
+        // card; a generated one has none of its own at all
+        if (type != GEN && prompt.isEmpty() && given == null && image == null) return null
         val topic = json.optString("topic").takeIf { it.isNotEmpty() }
         val tags = decodeStrings(json.optJSONArray("tags"))
         return when (type) {
@@ -203,11 +212,23 @@ class DeckStore(
                     prompt = prompt,
                     solution = solution,
                     given = given,
+                    image = image,
                     alternatives = decodeStrings(json.optJSONArray("alt")),
                     topic = topic,
                     tags = tags,
                 )
             }
+
+            SKETCH ->
+                SketchTask(
+                    prompt = prompt,
+                    given = given,
+                    image = image,
+                    answerImage = json.optString("answerImage").takeIf { it.isNotEmpty() },
+                    answer = json.optString("answer").takeIf { it.isNotEmpty() },
+                    topic = topic,
+                    tags = tags,
+                ).takeIf { it.hasAnswer }
 
             CHOICE -> {
                 val answers = decodeStrings(json.optJSONArray("answers"))
@@ -218,6 +239,7 @@ class DeckStore(
                     answers = answers,
                     correctIndex = correctIndex,
                     given = given,
+                    image = image,
                     topic = topic,
                     tags = tags,
                 )
@@ -258,15 +280,16 @@ class DeckStore(
          * 1 was a flat list of cards per deck, 2 groups them into subtopics, 3 gives every card
          * a type so a card can hold code to write rather than answers to pick, 4 keeps the code
          * on a card's front apart from its prose so it can be set as code, 5 adds the card that
-         * makes its own numbers up.
+         * makes its own numbers up, 6 the pictures and the card that is answered on paper.
          *
          * A card saved by 3 has all of its front in the prompt, which still reads and still
          * works; it is set as prose until the file it came from is imported again.
          */
-        private const val VERSION = 5
+        private const val VERSION = 6
 
         private const val CHOICE = "choice"
         private const val CODE = "code"
         private const val GEN = "gen"
+        private const val SKETCH = "sketch"
     }
 }

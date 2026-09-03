@@ -5,6 +5,7 @@ import net.bueffel.model.CodeTask
 import net.bueffel.model.GenKind
 import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
+import net.bueffel.model.SketchTask
 import net.bueffel.model.Task
 
 /**
@@ -142,11 +143,20 @@ object CardFileParser {
                 .filter { it.isNotEmpty() }
 
         val back = fields[BACK]?.takeIf { it.isNotBlank() }
-        // the type may be left out: a card with options is a question, one with a back is code
-        val type = fields[TYPE]?.lowercase() ?: if (back != null) CODE else CHOICE
-        // a card has to say something on its front, in prose or in code - except a generated
-        // one, which writes its own wording and its own numbers
-        if (type != GEN && prompt.isEmpty() && given == null) return null
+        val image = fields[IMAGE]?.takeIf { it.isNotBlank() }
+        val answerImage = fields[ANSWERIMAGE]?.takeIf { it.isNotBlank() }
+        val answer = fields[ANSWER]?.takeIf { it.isNotBlank() }
+        // the type may be left out: a card with options is a question, one with a back is code,
+        // and one whose answer is a picture or a paragraph is answered on paper
+        val type =
+            fields[TYPE]?.lowercase() ?: when {
+                answerImage != null || answer != null -> SKETCH
+                back != null -> CODE
+                else -> CHOICE
+            }
+        // a card has to say something on its front, in prose, in code or as a picture - except a
+        // generated one, which writes its own wording and its own numbers
+        if (type != GEN && prompt.isEmpty() && given == null && image == null) return null
         return when (type) {
             CODE ->
                 if (back == null) {
@@ -156,11 +166,24 @@ object CardFileParser {
                         prompt = prompt,
                         solution = back,
                         given = given,
+                        image = image,
                         alternatives = alternatives,
                         topic = topic,
                         tags = tags,
                     )
                 }
+
+            // a card with nothing on the back would be turned over onto an empty screen
+            SKETCH ->
+                SketchTask(
+                    prompt = prompt,
+                    given = given,
+                    image = image,
+                    answerImage = answerImage,
+                    answer = answer,
+                    topic = topic,
+                    tags = tags,
+                ).takeIf { it.hasAnswer }
 
             CHOICE ->
                 if (options.size < 2 || correct !in options.indices) {
@@ -171,6 +194,7 @@ object CardFileParser {
                         answers = options,
                         correctIndex = correct,
                         given = given,
+                        image = image,
                         topic = topic,
                         tags = tags,
                     )
@@ -257,6 +281,12 @@ object CardFileParser {
     private const val TOPIC = "topic"
     private const val CODE = "code"
     private const val CHOICE = "choice"
+
+    /** Answered on paper and marked by the reader; the back is a picture or a paragraph */
+    private const val SKETCH = "sketch"
+    private const val IMAGE = "image"
+    private const val ANSWER = "answer"
+    private const val ANSWERIMAGE = "answerimage"
 
     private const val GEN = "gen"
     private const val KIND = "kind"

@@ -139,6 +139,34 @@ selbst.
 - Antworten werden als Zahl verglichen: `0f`, `f`, `0x0F` und `0000 1111` sind dieselbe Antwort.
   Nur bei `printf` zählt der Text, weil dort die Nullen die Aufgabe sind.
 
+### Bilder, und Karten die du selbst bewertest
+
+    type: sketch
+    topic: UML
+    front: Zeichne das Activity Chart zu node_delete
+    given:
+    ```c
+    void node_delete(node_t *n) { ... }
+    ```
+    answerimage: node-delete-chart.png
+    ---
+    front: Was tut dieses Diagramm?
+    image: chart.png
+    - Es löscht einen Knoten
+    - *Es fügt einen Knoten ein
+
+- `image:` ist ein Bild auf der Vorderseite und geht bei jedem Kartentyp.
+- `answerimage:` (oder `answer:` für Prosa) macht eine Karte, die du auf Papier beantwortest:
+  Aufgabe, dann „Lösung zeigen", dann „Hatte ich" / „Hatte ich nicht". Kein Programm vergleicht
+  eine Zeichnung, also bewertest du selbst — dieselbe Entscheidung wie beim Code.
+- Bilder werden **getrennt** eingelesen (Schritt 3 im Import-Screen, Mehrfachauswahl) und unter
+  ihrem Dateinamen abgelegt; in der Karte steht nur dieser Name. Ein relativer Pfad ginge nicht:
+  der Dateidialog liefert eine `content://`-URI, aus der kein Nachbarverzeichnis erreichbar ist.
+- Der Name wird beim Ablegen aufgeräumt — klein, alles außer Buchstaben, Ziffern, `.`, `-` und `_`
+  wird zum Bindestrich. `Activity Chart.PNG` liegt als `activity-chart.png`; in der Karte darf
+  beides stehen.
+- Fehlt ein Bild, sagt die Karte das und nennt den Dateinamen, statt leer zu bleiben.
+
 ## Bauen
 
 ```sh

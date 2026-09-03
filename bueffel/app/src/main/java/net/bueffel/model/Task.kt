@@ -19,6 +19,14 @@ sealed interface Task {
      */
     val given: String? get() = null
 
+    /**
+     * The name of a picture shown on the front, or null when there is none.
+     *
+     * A name rather than a path: the picture lives in the app's own store, because the file
+     * dialog a card file arrives through gives no way back to the directory it came from.
+     */
+    val image: String? get() = null
+
     /** Which part of the set this belongs to */
     val topic: String?
 
@@ -32,10 +40,14 @@ sealed interface Task {
      * card has no prompt, and two of them would look like the same card to anything matching on
      * it - which is how a finished session would write one card's progress into another.
      */
-    val identity: String get() = prompt + "\n" + given.orEmpty()
+    val identity: String get() = prompt + "\n" + given.orEmpty() + "\n" + image.orEmpty()
 
     /** One line naming the card, for a list or a preview */
-    val label: String get() = firstLine(prompt).ifEmpty { firstLine(given.orEmpty()) }
+    val label: String
+        get() =
+            firstLine(prompt)
+                .ifEmpty { firstLine(given.orEmpty()) }
+                .ifEmpty { image.orEmpty() }
 }
 
 /** The first line with anything on it, trimmed; empty when there is none */
@@ -56,10 +68,40 @@ data class Question(
     val answers: List<String>,
     val correctIndex: Int,
     override val given: String? = null,
+    override val image: String? = null,
     override val topic: String? = null,
     override val tags: List<String> = emptyList(),
 ) : Task {
     val correctAnswer: String get() = answers[correctIndex]
+}
+
+/**
+ * A card answered away from the phone, and marked by the reader.
+ *
+ * The exam asks for an activity chart drawn on paper, and no app is going to compare a drawing.
+ * So this card shows its front, waits to be asked for the answer, and then shows it: a picture,
+ * or a few lines of prose. Whether that matches what was drawn is the reader's own call - the
+ * same call the marking of a written answer already leaves to them.
+ *
+ * It is also the plain flashcard the app did not have: a front, a back, and two buttons.
+ *
+ * @param answerImage the picture of the answer
+ * @param answer the answer in prose, for a card whose answer is not a picture
+ */
+data class SketchTask(
+    override val prompt: String,
+    override val given: String? = null,
+    override val image: String? = null,
+    val answerImage: String? = null,
+    val answer: String? = null,
+    override val topic: String? = null,
+    override val tags: List<String> = emptyList(),
+) : Task {
+    override val identity: String
+        get() = prompt + "\n" + given.orEmpty() + "\n" + image.orEmpty() + "\n" + answerImage.orEmpty()
+
+    /** Whether there is anything to show when the answer is asked for */
+    val hasAnswer: Boolean get() = answerImage != null || !answer.isNullOrBlank()
 }
 
 /**
@@ -77,6 +119,7 @@ data class CodeTask(
     override val prompt: String,
     val solution: String,
     override val given: String? = null,
+    override val image: String? = null,
     val alternatives: List<String> = emptyList(),
     override val topic: String? = null,
     override val tags: List<String> = emptyList(),
@@ -92,7 +135,7 @@ data class CodeTask(
 
     // the solution belongs to the identity as well: two cards may ask the same thing of two
     // different functions, and the front alone would not tell them apart
-    override val identity: String get() = prompt + "\n" + given.orEmpty() + "\n" + solution
+    override val identity: String get() = prompt + "\n" + given.orEmpty() + "\n" + image.orEmpty() + "\n" + solution
 
     companion object {
         /** What a gap in the front looks like, so the task can say where the work goes */

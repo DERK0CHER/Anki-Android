@@ -60,6 +60,7 @@ import net.bueffel.model.CardMode
 import net.bueffel.model.CodeTask
 import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
+import net.bueffel.model.SketchTask
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelMotion
 import net.bueffel.ui.theme.BueffelShape
@@ -111,6 +112,7 @@ fun StudyScreen(
                         RoundView(
                             prompt = question.prompt,
                             given = question.given,
+                            image = question.image,
                             answers = order.map { question.answers[it] },
                             correctPosition = order.indexOf(question.correctIndex),
                         )
@@ -243,6 +245,16 @@ fun StudyScreen(
                         },
                     )
 
+                shown.mode == CardMode.Reveal ->
+                    RevealRound(
+                        task = shown.task as SketchTask,
+                        round = target.line,
+                        onSubmit = { correct ->
+                            if (soundOn) feedback.play(correct = correct)
+                            record(correct)
+                        },
+                    )
+
                 shown.mode == CardMode.Generate ->
                     GeneratedRound(
                         task = shown.task as GeneratedTask,
@@ -304,6 +316,7 @@ private data class Step(
 private data class RoundView(
     val prompt: String,
     val given: String?,
+    val image: String?,
     val answers: List<String>,
     val correctPosition: Int,
 )
@@ -363,6 +376,10 @@ private fun Round(
                 view.given?.let { code ->
                     if (view.prompt.isNotBlank()) Spacer(Modifier.height(14.dp))
                     GivenCode(code)
+                }
+                view.image?.let { picture ->
+                    if (view.prompt.isNotBlank() || view.given != null) Spacer(Modifier.height(14.dp))
+                    CardPicture(name = picture)
                 }
             }
 

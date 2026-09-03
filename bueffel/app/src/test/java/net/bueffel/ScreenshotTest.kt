@@ -1,19 +1,26 @@
 package net.bueffel
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
+import net.bueffel.data.ImageStore
 import net.bueffel.model.Card
 import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
 import net.bueffel.model.GenKind
 import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
+import net.bueffel.model.SketchTask
 import net.bueffel.model.Subtopic
 import net.bueffel.ui.DeckListScreen
 import net.bueffel.ui.ImportScreen
+import net.bueffel.ui.LocalImages
 import net.bueffel.ui.StudyScreen
 import net.bueffel.ui.SubtopicScreen
 import net.bueffel.ui.theme.BueffelTheme
@@ -23,6 +30,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.ByteArrayOutputStream
+import java.io.File
 
 /**
  * Renders each screen to a PNG.
@@ -377,6 +386,58 @@ class ScreenshotTest {
             }
         }
         capture("15-generated")
+    }
+
+    /**
+     * A stand-in for a diagram, drawn here so the test carries no binary file of its own.
+     *
+     * Boxes and a line: enough to see that a picture is scaled, rounded and placed the way the
+     * rest of a card is, which is all these screenshots can tell anybody about a picture.
+     */
+    private fun chartPng(): ByteArray {
+        val bitmap = Bitmap.createBitmap(640, 320, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(0xFF1F1F1F.toInt())
+        val ink = Paint().apply { color = 0xFFE9E9E9.toInt() }
+        canvas.drawRect(48f, 40f, 300f, 120f, ink)
+        canvas.drawRect(340f, 200f, 592f, 280f, ink)
+        canvas.drawRect(170f, 120f, 178f, 240f, ink)
+        canvas.drawRect(170f, 236f, 466f, 244f, ink)
+        val out = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        return out.toByteArray()
+    }
+
+    /** A card answered on paper: the task, then the answer, then the reader's own verdict */
+    @Test
+    fun sketchCard() {
+        val dir = File(System.getProperty("java.io.tmpdir"), "bueffel-shots-${System.nanoTime()}")
+        val images = ImageStore(dir)
+        images.save("node-delete-chart.png", chartPng())
+        val sketch =
+            SketchTask(
+                prompt = "Zeichne das Activity Chart zu node_delete",
+                given = "void node_delete(node_t *n) {\n    free(n->data);\n    free(n);\n}",
+                answerImage = "node-delete-chart.png",
+                topic = "UML",
+                tags = listOf("WS24"),
+            )
+        composeRule.setContent {
+            BueffelTheme {
+                CompositionLocalProvider(LocalImages provides images) {
+                    StudyScreen(
+                        key = "sketch",
+                        cards = listOf(Card(sketch)),
+                        soundOn = false,
+                        onFinished = {},
+                        onLeave = {},
+                    )
+                }
+            }
+        }
+        capture("16-sketch")
+        composeRule.onNodeWithText("Lösung zeigen").performClick()
+        capture("17-sketch-answer")
     }
 
     private companion object {

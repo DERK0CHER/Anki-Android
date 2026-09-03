@@ -1,7 +1,10 @@
 package net.bueffel
 
+import android.content.Context
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -10,19 +13,23 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import net.bueffel.data.DeckStore
+import net.bueffel.data.ImageStore
 import net.bueffel.data.Settings
 import net.bueffel.importer.DeckBuilder
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.ui.DeckListScreen
 import net.bueffel.ui.ImportScreen
+import net.bueffel.ui.LocalImages
 import net.bueffel.ui.StudyScreen
 import net.bueffel.ui.SubtopicScreen
 import net.bueffel.ui.theme.BueffelTheme
@@ -36,10 +43,15 @@ class MainActivity : ComponentActivity() {
         // so a two hundred millisecond tone can never be caught in time to turn it down
         volumeControlStream = AudioManager.STREAM_MUSIC
         val store = DeckStore(applicationContext)
+        val images = ImageStore(applicationContext)
         val settings = Settings(applicationContext)
         setContent {
             BueffelTheme {
-                BueffelApp(store, settings)
+                // handed down rather than passed along: a picture can turn up on any card, and
+                // threading the store through every round would say nothing about any of them
+                CompositionLocalProvider(LocalImages provides images) {
+                    BueffelApp(store, images, settings)
+                }
             }
         }
     }
@@ -72,6 +84,7 @@ private sealed interface Screen {
 @Composable
 private fun BueffelApp(
     store: DeckStore,
+    images: ImageStore,
     settings: Settings,
 ) {
     var decks by remember { mutableStateOf(store.load()) }
@@ -143,6 +156,22 @@ private fun BueffelApp(
                         .getOrNull()
             }
         }
+    // The pictures come in on their own, several at a time, and are filed under their own names.
+    // A path relative to the card file would be the obvious thing to write, and cannot work: the
+    // dialog hands back a content:// URI with no way to reach the directory it came from.
+    var picturesAdded by remember { mutableIntStateOf(0) }
+    val addImages =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+            var added = 0
+            for (uri in uris) {
+                runCatching {
+                    val name = displayName(context, uri) ?: uri.lastPathSegment ?: return@runCatching
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null && images.save(name, bytes) != null) added++
+                }.onFailure { Log.w(TAG, "could not read a picture", it) }
+            }
+            picturesAdded = added
+        }
     val restoreFile =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
@@ -187,6 +216,7 @@ private fun BueffelApp(
             // the last import again as though it had just been picked
             fun leaveImport() {
                 importedText = null
+                picturesAdded = 0
                 screen = Screen.Decks
             }
             BackHandler { leaveImport() }
@@ -194,6 +224,8 @@ private fun BueffelApp(
                 onCancel = { leaveImport() },
                 onPickFile = { importFile.launch(CARD_FILE_TYPES) },
                 fileText = importedText,
+                onPickImages = { addImages.launch(arrayOf("image/*")) },
+                picturesAdded = picturesAdded,
                 onImport = { name, questions ->
                     if (questions.isNotEmpty()) {
                         persist(
@@ -254,6 +286,22 @@ private fun BueffelApp(
         }
     }
 }
+
+/**
+ * What the picker calls a file.
+ *
+ * That name is what the card file will refer to, so it is what the picture has to be filed
+ * under; the URI's own last segment is a document id and means nothing to anybody.
+ */
+private fun displayName(
+    context: Context,
+    uri: Uri,
+): String? =
+    runCatching {
+        context.contentResolver
+            .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+    }.getOrNull()
 
 private const val TAG = "Bueffel"
 

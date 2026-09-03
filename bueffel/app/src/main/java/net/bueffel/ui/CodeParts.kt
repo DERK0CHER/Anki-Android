@@ -70,10 +70,10 @@ fun GivenCode(
 }
 
 /**
- * A card's front: the task in prose, the code underneath it as code.
+ * A card's front: the task in prose, the code underneath it as code, the picture under that.
  *
- * Either half may be missing - a card can be all prose or all code - and nothing is drawn for
- * the one that is not there.
+ * Any of the three may be missing - a card can be all prose, all code or nothing but a diagram -
+ * and nothing is drawn for the ones that are not there.
  */
 @Composable
 fun TaskFront(
@@ -92,6 +92,10 @@ fun TaskFront(
         task.given?.let { code ->
             if (task.prompt.isNotBlank()) Spacer(Modifier.height(14.dp))
             GivenCode(code)
+        }
+        task.image?.let { picture ->
+            if (task.prompt.isNotBlank() || task.given != null) Spacer(Modifier.height(14.dp))
+            CardPicture(name = picture)
         }
     }
 }

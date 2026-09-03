@@ -8,6 +8,7 @@ import net.bueffel.model.Deck
 import net.bueffel.model.GenKind
 import net.bueffel.model.GeneratedTask
 import net.bueffel.model.Question
+import net.bueffel.model.SketchTask
 import net.bueffel.model.Subtopic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -107,6 +108,30 @@ class DeckStoreTest {
         assertEquals("Altes Thema", loaded.subtopics.single().name)
         assertEquals(3, loaded.cards.single().box)
         assertTrue(!loaded.cards.single().hard)
+    }
+
+    @Test
+    fun `a card answered on paper survives being written and read back`() {
+        val task =
+            SketchTask(
+                prompt = "Zeichne das Activity Chart zu node_delete",
+                image = "node-delete.png",
+                answerImage = "node-delete-chart.png",
+                topic = "UML",
+                tags = listOf("WS24"),
+            )
+        val decks = listOf(Deck("a", "Thema", listOf(Subtopic("a-0", "Teil", listOf(Card(task, box = 4))))))
+
+        store.save(decks)
+
+        val loaded =
+            store
+                .load()
+                .single()
+                .cards
+                .single()
+        assertEquals(task, loaded.task)
+        assertEquals(4, loaded.box)
     }
 
     @Test
