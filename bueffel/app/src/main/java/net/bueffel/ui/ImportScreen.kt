@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,9 @@ import net.bueffel.ui.theme.BueffelShape
  * answer back off the clipboard. Nobody types a question set on a phone, and the paragraph-sized
  * text box this screen used to have could not scroll inside a scrolling page, so it clipped.
  *
+ * Code cards come the other way: they are written at a desk and reach the phone as a file, so
+ * the same screen will open one. Either way in ends at the same parser and the same preview.
+ *
  * The way out is pinned to the bottom edge, where a cancel belongs, instead of trailing the
  * content into the middle of the screen.
  */
@@ -46,11 +50,19 @@ import net.bueffel.ui.theme.BueffelShape
 fun ImportScreen(
     onCancel: () -> Unit,
     onImport: (name: String, tasks: List<Task>) -> Unit,
+    onPickFile: () -> Unit = {},
+    fileText: String? = null,
 ) {
     val clipboard = LocalClipboardManager.current
     var parsed by remember { mutableStateOf<CardImport.Result?>(null) }
     var promptCopied by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
+
+    // The file is picked outside this screen, because the picker belongs to the activity, and
+    // its text arrives here. Both ways in end up at the same parser and the same preview.
+    LaunchedEffect(fileText) {
+        if (fileText != null) parsed = CardImport.parse(fileText)
+    }
 
     val found = parsed?.tasks.orEmpty()
 
@@ -97,11 +109,20 @@ fun ImportScreen(
             )
 
             Spacer(Modifier.height(28.dp))
-            StepLabel(number = "2", text = "Antwort der KI kopieren, hier einlesen")
+            StepLabel(number = "2", text = "Antwort einlesen: aus der Zwischenablage oder aus einer Datei")
             Spacer(Modifier.height(14.dp))
             BueffelButton(
                 text = "Aus Zwischenablage einlesen",
                 onClick = { parsed = CardImport.parse(clipboard.getText()?.text.orEmpty()) },
+            )
+            Spacer(Modifier.height(10.dp))
+            // The card file for code is written at a desk and lands on the phone as a file, not
+            // on the clipboard. Copying a page of code out of a file manager to paste it here is
+            // the sort of fiddling that stops a set from being written at all.
+            BueffelButton(
+                text = "Kartendatei vom Gerät öffnen",
+                onClick = onPickFile,
+                filled = false,
             )
 
             parsed?.let { result ->
@@ -155,8 +176,9 @@ private fun ResultPanel(result: CardImport.Result) {
         if (found == 0) {
             Text(
                 text =
-                    "Liegt der Text wirklich in der Zwischenablage? Erwartet wird das JSON " +
-                        "aus dem Prompt oben, oder eine Kartendatei mit front:/back:-Feldern.",
+                    "Steht der Text wirklich in der Zwischenablage oder in der Datei? Erwartet " +
+                        "wird das JSON aus dem Prompt oben, oder eine Kartendatei mit " +
+                        "front:/back:-Feldern.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = BueffelColors.TextSecondary,
             )

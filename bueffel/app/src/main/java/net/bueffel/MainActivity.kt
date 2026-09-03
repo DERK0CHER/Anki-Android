@@ -118,6 +118,23 @@ private fun BueffelApp(
                 }.onFailure { Log.w(TAG, "could not write the backup", it) }
             }
         }
+    // A card file is written at a desk and arrives as a file. Reading it here rather than
+    // through the clipboard is the same picker one line further along, and it takes the
+    // copy-and-paste fiddling out of importing a set of code cards.
+    var importedText by remember { mutableStateOf<String?>(null) }
+    val importFile =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                importedText =
+                    runCatching {
+                        context.contentResolver
+                            .openInputStream(uri)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
+                    }.onFailure { Log.w(TAG, "could not read the card file", it) }
+                        .getOrNull()
+            }
+        }
     val restoreFile =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
@@ -158,9 +175,17 @@ private fun BueffelApp(
             )
 
         Screen.Import -> {
-            BackHandler { screen = Screen.Decks }
+            // the file that was read has to go when the screen does, or coming back would show
+            // the last import again as though it had just been picked
+            fun leaveImport() {
+                importedText = null
+                screen = Screen.Decks
+            }
+            BackHandler { leaveImport() }
             ImportScreen(
-                onCancel = { screen = Screen.Decks },
+                onCancel = { leaveImport() },
+                onPickFile = { importFile.launch(CARD_FILE_TYPES) },
+                fileText = importedText,
                 onImport = { name, questions ->
                     if (questions.isNotEmpty()) {
                         persist(
@@ -172,7 +197,7 @@ private fun BueffelApp(
                                 ),
                         )
                     }
-                    screen = Screen.Decks
+                    leaveImport()
                 },
             )
         }
@@ -223,3 +248,12 @@ private const val TAG = "Bueffel"
 
 /** What a backup is written as, and the first thing offered when one is picked back up */
 private const val BACKUP_TYPE = "application/json"
+
+/**
+ * What the picker offers for a card file.
+ *
+ * A `.txt` or `.md` written on a desktop and copied over often arrives as
+ * `application/octet-stream`, so the catch-all has to be in the list or the file the learner
+ * came to fetch would be greyed out.
+ */
+private val CARD_FILE_TYPES = arrayOf("text/*", BACKUP_TYPE, "*/*")
