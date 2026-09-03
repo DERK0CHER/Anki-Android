@@ -41,13 +41,14 @@ data class Marking(
     /** "8,25 / 10", in the notation a German exam uses */
     fun asScore(): String = "${format(points)} / $maxPoints"
 
-    private fun format(value: Double): String {
-        val rounded = Math.round(value * 100) / 100.0
-        if (rounded == rounded.toLong().toDouble()) return rounded.toLong().toString()
-        return rounded.toString().replace('.', ',')
-    }
-
     companion object {
+        /** A number of points as a German paper writes it: no trailing zeros, a comma */
+        fun format(value: Double): String {
+            val rounded = Math.round(value * 100) / 100.0
+            if (rounded == rounded.toLong().toDouble()) return rounded.toLong().toString()
+            return rounded.toString().replace('.', ',')
+        }
+
         /**
          * The marks a fresh comparison starts from.
          *
