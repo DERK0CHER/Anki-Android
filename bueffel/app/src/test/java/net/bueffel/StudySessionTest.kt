@@ -309,7 +309,7 @@ class StudySessionTest {
 
     @Test
     fun `a muddled sort puts the promotion back to the start`() {
-        val cards = listOf(Card(CodeTask(prompt = "Schreibe es", solution = "a();")))
+        val cards = listOf(Card(CodeTask(prompt = "Schreibe es", solution = "a();\nb();")))
         val session = StudySession(cards)
 
         session.sorted(clean = true)
@@ -318,6 +318,14 @@ class StudySessionTest {
 
         assertEquals(0, requireNotNull(session.current()).sorted)
         assertEquals(CardMode.Sort, requireNotNull(session.current()).mode)
+    }
+
+    @Test
+    fun `a one line answer is typed out rather than sorted`() {
+        val card = Card(CodeTask(prompt = "Spaltenvektor anlegen", solution = "d = [3;6;2;5;9]"))
+
+        // there is no order to put one line in, and nothing to mark line by line
+        assertEquals(CardMode.Type, card.mode)
     }
 
     @Test

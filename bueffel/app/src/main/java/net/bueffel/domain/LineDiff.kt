@@ -100,4 +100,43 @@ object LineDiff {
         val b = theirs.map { it.trim() }.filter { it.isNotEmpty() }
         return a == b
     }
+
+    /**
+     * Whether two one-line answers are the same, with the spacing normalised and nothing else.
+     *
+     * Whitespace beside anything that is not a letter or a digit is dropped, so `d = [3;6]` and
+     * `d=[3;6]` are the same answer - nobody should lose a card over a space in front of an
+     * equals sign. Between two word characters it is kept, because there it separates two
+     * things: `int a` is not `inta`, and in MATLAB `[3 6]` is a row of two and `[36]` is not.
+     *
+     * Case is left alone. In C and in MATLAB it means something.
+     */
+    fun sameLine(
+        mine: String,
+        theirs: String,
+    ): Boolean = squeeze(mine) == squeeze(theirs)
+
+    /** The line with the whitespace that carries no meaning taken out */
+    private fun squeeze(line: String): String {
+        val text = line.trim()
+        val out = StringBuilder()
+        var index = 0
+        while (index < text.length) {
+            val char = text[index]
+            if (!char.isWhitespace()) {
+                out.append(char)
+                index++
+                continue
+            }
+            var next = index
+            while (next < text.length && text[next].isWhitespace()) next++
+            val before = out.lastOrNull()
+            val after = text.getOrNull(next)
+            if (before != null && after != null && before.isLetterOrDigit() && after.isLetterOrDigit()) {
+                out.append(' ')
+            }
+            index = next
+        }
+        return out.toString()
+    }
 }

@@ -246,6 +246,75 @@ class ScreenshotTest {
         capture("10-write-code")
     }
 
+    private val columnVector =
+        CodeTask(
+            prompt = "Lege einen Spaltenvektor mit den Werten 3, 6, 2, 5, 9 an",
+            solution = "d = [3;6;2;5;9]",
+            alternatives = listOf("d = [3 6 2 5 9]'"),
+            topic = "MATLAB",
+            tags = listOf("WS24"),
+        )
+
+    /** A model answer of one line: one field, no marking, the app decides */
+    @Test
+    fun typeOneLiner() {
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "type",
+                    cards = listOf(Card(columnVector)),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                )
+            }
+        }
+        capture("11-type-line")
+    }
+
+    /** The verdict, with the model answer shown because the empty answer was wrong */
+    @Test
+    fun typeOneLinerWrong() {
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "type",
+                    cards = listOf(Card(columnVector)),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("Abgeben").performClick()
+        capture("12-type-wrong")
+    }
+
+    /** A program and three outputs, which is how the exam asks what code does */
+    @Test
+    fun traceQuestion() {
+        val trace =
+            Question(
+                prompt = "Was gibt das Programm aus?",
+                given = "int a = 3;\nint b = a << 2;\nprintf(\"%d\\n\", b);",
+                answers = listOf("6", "12", "24"),
+                correctIndex = 1,
+                topic = "C",
+            )
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "trace",
+                    cards = listOf(Card(trace)),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                )
+            }
+        }
+        capture("13-trace")
+    }
+
     private companion object {
         const val OUTPUT_DIR = "build/outputs/roborazzi"
     }

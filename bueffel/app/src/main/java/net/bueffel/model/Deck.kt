@@ -26,6 +26,10 @@ data class Card(
         get() =
             when {
                 task !is CodeTask -> CardMode.Choose
+                // one line has no order to put it in and nothing to mark line by line: the
+                // editor, the diff and the three marks are all there to handle a function, and
+                // none of them earns its place for `d = [3;6;2;5;9]`
+                task.isOneLiner -> CardMode.Type
                 sorted >= SORTS_TO_WRITE -> CardMode.Write
                 else -> CardMode.Sort
             }
@@ -57,6 +61,9 @@ enum class CardMode {
 
     /** Type it out and mark it yourself */
     Write,
+
+    /** Type the single line it is; right or wrong is decided by comparing the two */
+    Type,
 }
 
 /**

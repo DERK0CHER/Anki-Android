@@ -242,6 +242,16 @@ fun StudyScreen(
                         },
                     )
 
+                shown.mode == CardMode.Type ->
+                    TypeRound(
+                        task = shown.task as CodeTask,
+                        round = target.line,
+                        onSubmit = { correct ->
+                            if (soundOn) feedback.play(correct = correct)
+                            record(correct)
+                        },
+                    )
+
                 shown.mode == CardMode.Sort ->
                     SortRound(
                         task = shown.task as CodeTask,

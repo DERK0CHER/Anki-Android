@@ -68,6 +68,24 @@ class LineDiffTest {
     }
 
     @Test
+    fun `a space beside a bracket or an equals sign does not decide a one liner`() {
+        assertTrue(LineDiff.sameLine("d=[3;6;2;5;9]", "d = [3;6;2;5;9]"))
+        assertTrue(LineDiff.sameLine("  free( n );", "free(n);"))
+    }
+
+    @Test
+    fun `a space between two words is part of the one liner`() {
+        // [3 6] is a row of two numbers and [36] is one number, so this space is the answer
+        assertTrue(!LineDiff.sameLine("d = [3 6]", "d = [36]"))
+        assertTrue(!LineDiff.sameLine("int a", "inta"))
+    }
+
+    @Test
+    fun `a one liner is compared with its case intact`() {
+        assertTrue(!LineDiff.sameLine("Int a = 1;", "int a = 1;"))
+    }
+
+    @Test
     fun `the line as typed is what comes back, not the trimmed one`() {
         val rows = LineDiff.compare(listOf("    return 1;"), listOf("return 1;"))
 
