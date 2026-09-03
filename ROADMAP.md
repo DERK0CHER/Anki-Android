@@ -145,6 +145,15 @@ CSV ist bewusst nicht gebaut: Code in CSV-Zellen ist dasselbe Escaping-Problem w
 - **Tastatur-Insets** im Import-Screen: `safeDrawingPadding()` statt gestapeltem
   `systemBarsPadding() + imePadding()`, plus `adjustResize` im Manifest.
 
+## Was auf den Screenshots auffiel und noch offen ist
+
+- **Der Code auf der Vorderseite ist nicht Monospace.** `09-sort-code.png` und `10-write-code.png`
+  zeigen die Signatur in der proportionalen Titelschrift, fett — nur das Eingabefeld und die
+  Sortierzeilen sind Monospace. Bei C ist das schlecht lesbar. Der Prompt einer `CodeTask` ist
+  heute ein Feld, das Aufgabentext und Code mischt; sauber wäre, den Codeteil getrennt zu halten
+  (etwa `CodeTask.given`) und ihn wie die Sortierzeilen zu setzen. Betrifft `ui/CodeRound.kt` und
+  `ui/SortRound.kt`, jeweils das `Text` mit `task.prompt`.
+
 ## Lokal weiterarbeiten
 
 ```sh
