@@ -43,6 +43,17 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+
+            // The only way anybody sees a failure here is the CI log, and by default that log
+            // says "AssertionError at SomeTest.kt:78" and nothing else - so the message the test
+            // went to the trouble of writing is thrown away exactly when it is wanted.
+            all {
+                it.testLogging {
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    events("failed")
+                    showStandardStreams = true
+                }
+            }
         }
     }
 }

@@ -70,8 +70,13 @@ class SortRoundTest {
         // arrives before the press has been recognised and is thrown away as a scroll.
         composeRule.onNodeWithText(top).performTouchInput { down(center) }
         composeRule.mainClock.advanceTimeBy(LONG_PRESS)
-        composeRule.onNodeWithText(top).performTouchInput { moveBy(Offset(0f, travel)) }
-        composeRule.mainClock.advanceTimeBy(100)
+        // the finger moves in steps rather than in one jump, which is both what a finger does
+        // and what the gesture wants: a single event the size of a row is easy to mistake for a
+        // fling that never became a drag
+        repeat(4) {
+            composeRule.onNodeWithText(top).performTouchInput { moveBy(Offset(0f, travel / 4f)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
         composeRule.onNodeWithText(top).performTouchInput { up() }
         composeRule.mainClock.advanceTimeBy(500)
 
