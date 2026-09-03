@@ -2,6 +2,7 @@ package net.bueffel
 
 import net.bueffel.data.DeckStore
 import net.bueffel.model.Card
+import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
@@ -103,5 +104,55 @@ class DeckStoreTest {
         assertEquals("Altes Thema", loaded.subtopics.single().name)
         assertEquals(3, loaded.cards.single().box)
         assertTrue(!loaded.cards.single().hard)
+    }
+
+    @Test
+    fun `a code card survives being written and read back`() {
+        val task =
+            CodeTask(
+                prompt = "void f() {\n>>> Hier fehlt was\n}",
+                solution = "    return;",
+                alternatives = listOf("    return 0;"),
+                topic = "Funktionen",
+                tags = listOf("WS24"),
+            )
+        val decks = listOf(Deck("a", "Thema", listOf(Subtopic("a-0", "Teil", listOf(Card(task, box = 3, sorted = 2))))))
+
+        store.save(decks)
+
+        val loaded =
+            store
+                .load()
+                .single()
+                .cards
+                .single()
+        assertEquals(task, loaded.task)
+        assertEquals(3, loaded.box)
+        assertEquals(2, loaded.sorted)
+    }
+
+    @Test
+    fun `a card written before there were card types is still a question`() {
+        // version 2 wrote no "type" at all
+        file.writeText(
+            """
+            {"version":2,"decks":[{"id":"old","name":"Alt","subtopics":[
+              {"id":"old-0","name":"Teil","cards":[
+                {"prompt":"Frage","answers":["eins","zwei"],"correctIndex":1,"box":2}
+              ]}
+            ]}]}
+            """.trimIndent(),
+        )
+
+        val loaded =
+            store
+                .load()
+                .single()
+                .cards
+                .single()
+
+        assertTrue(loaded.task is Question)
+        assertEquals("zwei", (loaded.task as Question).correctAnswer)
+        assertEquals(2, loaded.box)
     }
 }

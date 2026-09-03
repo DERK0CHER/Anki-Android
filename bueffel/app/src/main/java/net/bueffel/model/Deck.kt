@@ -10,11 +10,26 @@ import kotlin.math.ln
  * a learner who is nearly there stays nearly there.
  */
 data class Card(
-    val question: Question,
+    val task: Task,
     val box: Int = 0,
     /** Marked by the learner as one they keep getting wrong; it then comes back twice as often */
     val hard: Boolean = false,
+    /**
+     * How many times a code task's lines have been put in the right order with nothing out of
+     * place. Sorting is the easier half of writing code, so a card starts there and moves up to
+     * writing it out once it has been sorted cleanly [SORTS_TO_WRITE] times.
+     */
+    val sorted: Int = 0,
 ) {
+    /** How this card should be asked now */
+    val mode: CardMode
+        get() =
+            when {
+                task !is CodeTask -> CardMode.Choose
+                sorted >= SORTS_TO_WRITE -> CardMode.Write
+                else -> CardMode.Sort
+            }
+
     /** Where this question sits on the run from not known to known, 0f..1f */
     val strength: Float get() = strengthOf(box)
 
@@ -26,7 +41,22 @@ data class Card(
     companion object {
         /** Correct answers in a row before a question drops out of the rotation */
         const val LEARNED_BOX = 8
+
+        /** Clean sorts before a code task stops being sorted and has to be written out */
+        const val SORTS_TO_WRITE = 2
     }
+}
+
+/** How a card is being asked at the moment */
+enum class CardMode {
+    /** Pick one of several answers */
+    Choose,
+
+    /** Drag the model answer's lines into order */
+    Sort,
+
+    /** Type it out and mark it yourself */
+    Write,
 }
 
 /**
@@ -111,12 +141,12 @@ data class Deck(
         // Each studied card is handed out once. Matching with a plain map keyed on the question
         // would keep only the last of any repeated one, so a question that appears in two parts
         // would get the same result written into both and one part's work would be lost.
-        val waiting = cards.groupBy { it.question.prompt }.mapValues { ArrayDeque(it.value) }
+        val waiting = cards.groupBy { it.task.prompt }.mapValues { ArrayDeque(it.value) }
         return copy(
             subtopics =
                 subtopics.map { subtopic ->
                     subtopic.copy(
-                        cards = subtopic.cards.map { waiting[it.question.prompt]?.removeFirstOrNull() ?: it },
+                        cards = subtopic.cards.map { waiting[it.task.prompt]?.removeFirstOrNull() ?: it },
                     )
                 },
         )

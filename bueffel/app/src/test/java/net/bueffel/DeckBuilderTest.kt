@@ -101,7 +101,7 @@ class DeckBuilderTest {
                     ),
             )
 
-        val studied = deck.cards.map { if (it.question.prompt == "y") it.copy(box = 5) else it }
+        val studied = deck.cards.map { if (it.task.prompt == "y") it.copy(box = 5) else it }
         val updated = deck.withMixedCards(studied)
 
         val untouched = updated.subtopics[0].cards.single()

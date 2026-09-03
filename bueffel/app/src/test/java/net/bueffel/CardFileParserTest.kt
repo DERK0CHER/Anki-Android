@@ -1,0 +1,179 @@
+package net.bueffel
+
+import net.bueffel.importer.CardFileParser
+import net.bueffel.importer.CardImport
+import net.bueffel.model.CodeTask
+import net.bueffel.model.Question
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/**
+ * Tests the format cards are written in at a desk.
+ *
+ * Robolectric only for the dispatcher, which falls back to the JSON parser and therefore needs a
+ * real org.json.
+ */
+@RunWith(RobolectricTestRunner::class)
+class CardFileParserTest {
+    private val nodeDelete =
+        """
+        type: code
+        topic: Verkettete Listen
+        tags: WS24, Node_Delete
+        front:
+        ```c
+        void node_delete(node_t *n) {
+        >>> Hier fehlt was
+        }
+        ```
+        back:
+        ```c
+            free(n->data);
+            free(n);
+        ```
+        """.trimIndent()
+
+    @Test
+    fun `a code card keeps its block exactly as written`() {
+        val task = CardFileParser.parse(nodeDelete).tasks.single() as CodeTask
+
+        assertTrue(task.prompt.contains("void node_delete(node_t *n) {"))
+        assertTrue(task.prompt.contains(CodeTask.GAP))
+        assertEquals(listOf("    free(n->data);", "    free(n);"), task.solutionLines)
+        assertEquals("Verkettete Listen", task.topic)
+        assertEquals(listOf("WS24", "Node_Delete"), task.tags)
+    }
+
+    @Test
+    fun `indentation inside a block survives`() {
+        val task = CardFileParser.parse(nodeDelete).tasks.single() as CodeTask
+
+        assertTrue("the leading spaces were eaten", task.solutionLines.first().startsWith("    "))
+    }
+
+    @Test
+    fun `a choice card marks its right answer with a star`() {
+        val text =
+            """
+            type: choice
+            front: Was ergibt 1 << 3?
+            - 4
+            - *8
+            - 16
+            """.trimIndent()
+
+        val question = CardFileParser.parse(text).tasks.single() as Question
+
+        assertEquals("Was ergibt 1 << 3?", question.prompt)
+        assertEquals(listOf("4", "8", "16"), question.answers)
+        assertEquals("8", question.correctAnswer)
+    }
+
+    @Test
+    fun `cards are separated by a lone three dashes`() {
+        val text =
+            """
+            front: Erste?
+            - a
+            - *b
+            ---
+            front: Zweite?
+            - *c
+            - d
+            """.trimIndent()
+
+        assertEquals(2, CardFileParser.parse(text).tasks.size)
+    }
+
+    @Test
+    fun `three dashes inside a block do not split the card`() {
+        val text =
+            """
+            type: code
+            front: Trennlinie zeichnen
+            back:
+            ```c
+            printf("---");
+            ```
+            """.trimIndent()
+
+        val task = CardFileParser.parse(text).tasks.single() as CodeTask
+        assertEquals(listOf("""printf("---");"""), task.solutionLines)
+    }
+
+    @Test
+    fun `alt may be given more than once, for the same thing written differently`() {
+        val text =
+            """
+            type: code
+            front: Spaltenvektor anlegen
+            back: d = [3 6 2 5 9]'
+            alt: d = [3;6;2;5;9]
+            alt: d = transpose([3 6 2 5 9])
+            """.trimIndent()
+
+        val task = CardFileParser.parse(text).tasks.single() as CodeTask
+
+        assertEquals("d = [3 6 2 5 9]'", task.solution)
+        assertEquals(listOf("d = [3;6;2;5;9]", "d = transpose([3 6 2 5 9])"), task.alternatives)
+        assertEquals(3, task.accepted.size)
+    }
+
+    @Test
+    fun `the type may be left out and is worked out from the fields`() {
+        val code = CardFileParser.parse("front: Schreibe es\nback: return 0;").tasks.single()
+        val choice = CardFileParser.parse("front: Was denn?\n- a\n- *b").tasks.single()
+
+        assertTrue(code is CodeTask)
+        assertTrue(choice is Question)
+    }
+
+    @Test
+    fun `a card without a front is skipped and counted`() {
+        val text =
+            """
+            front: Gut
+            - a
+            - *b
+            ---
+            back: einsam
+            """.trimIndent()
+
+        val found = CardFileParser.parse(text)
+
+        assertEquals(1, found.tasks.size)
+        assertEquals(1, found.skipped)
+    }
+
+    @Test
+    fun `a choice card with no right answer marked is skipped`() {
+        val found = CardFileParser.parse("front: Was?\n- a\n- b")
+
+        assertEquals(0, found.tasks.size)
+        assertEquals(1, found.skipped)
+    }
+
+    @Test
+    fun `the dispatcher recognises a card file and leaves JSON to the other parser`() {
+        val cards = CardImport.parse(nodeDelete)
+        val json = CardImport.parse("""[{"question": "Q?", "answers": ["a", "b"], "correct": 0}]""")
+
+        assertEquals(CardImport.Format.CardFile, cards.format)
+        assertEquals(CardImport.Format.Questions, json.format)
+        assertEquals(1, json.tasks.size)
+    }
+
+    @Test
+    fun `something that looks like a card file but is not falls through to JSON`() {
+        // "type:" appears, but there is no card in it - the JSON underneath must still be read
+        val text = """Der type: ist egal. [{"question": "Q?", "answers": ["a", "b"], "correct": 1}]"""
+
+        val result = CardImport.parse(text)
+
+        assertEquals(1, result.tasks.size)
+        assertEquals(CardImport.Format.Questions, result.format)
+    }
+}

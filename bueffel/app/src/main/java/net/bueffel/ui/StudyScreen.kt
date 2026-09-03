@@ -56,6 +56,9 @@ import androidx.compose.ui.unit.dp
 import net.bueffel.audio.Feedback
 import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
+import net.bueffel.model.CardMode
+import net.bueffel.model.CodeTask
+import net.bueffel.model.Question
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelMotion
 import net.bueffel.ui.theme.BueffelShape
@@ -90,24 +93,29 @@ fun StudyScreen(
 
     // A fresh order every time the question comes round: with a fixed order the answer that
     // gets remembered is "the second one from the top" rather than the answer itself.
-    val view =
+    // Everything one round shows, captured together: the outgoing and incoming rounds are on
+    // screen at the same time while they slide past each other, so neither may read the session
+    // as it is now.
+    val step =
         remember(round) {
-            session.current()?.let { card ->
-                val order =
-                    card.question.answers.indices
-                        .shuffled()
-                RoundView(
-                    step = round,
-                    prompt = card.question.prompt,
-                    answers = order.map { card.question.answers[it] },
-                    correctPosition = order.indexOf(card.question.correctIndex),
-                    round = session.roundNumber,
-                    target = session.target,
-                    remaining = session.remainingThisRound,
-                    hard = card.hard,
-                )
-            }
+            val card = session.current()
+            val line = roundLine(session.roundNumber, session.target, session.remainingThisRound)
+            Step(
+                index = round,
+                card = card,
+                line = line,
+                view =
+                    (card?.task as? Question)?.let { question ->
+                        val order = question.answers.indices.shuffled()
+                        RoundView(
+                            prompt = question.prompt,
+                            answers = order.map { question.answers[it] },
+                            correctPosition = order.indexOf(question.correctIndex),
+                        )
+                    },
+            )
         }
+    val card = step.card
     val chosen = picked
 
     // Flagging must not bump the round: that would redraw the answers in a new order under a
@@ -120,7 +128,7 @@ fun StudyScreen(
     // landed" from the corner of the eye, so it is faint and gone again quickly.
     val flash = remember { Animatable(0f) }
     val flashColour =
-        if (chosen != null && chosen == view?.correctPosition) {
+        if (chosen != null && chosen == step.view?.correctPosition) {
             BueffelColors.LearnedGreen
         } else {
             BueffelColors.Wrong
@@ -140,15 +148,20 @@ fun StudyScreen(
     // back the cards as they were before any of this was answered
     BackHandler { onLeave(session.snapshot()) }
 
-    fun advance() {
-        val position = picked ?: return
-        val current = view ?: return
-        session.answer(correct = position == current.correctPosition)
+    /** Records an answer from whichever mode produced it and moves on */
+    fun record(correct: Boolean) {
+        session.answer(correct = correct)
         picked = null
         round++
+        onProgress(session.snapshot())
+    }
+
+    fun advance() {
+        val position = picked ?: return
+        val current = step.view ?: return
         // written after every answer, not only on the way out: the app can be swiped away or
         // the process reclaimed at any moment, and a whole session's work would go with it
-        onProgress(session.snapshot())
+        record(correct = position == current.correctPosition)
     }
 
     Column(
@@ -177,7 +190,7 @@ fun StudyScreen(
     ) {
         TopBar(
             progress = session.progress,
-            hard = flagged ?: (view?.hard == true),
+            hard = flagged ?: (card?.hard == true),
             canUndo = session.canUndo && chosen == null,
             onHard = {
                 session.flag(it)
@@ -195,7 +208,7 @@ fun StudyScreen(
         )
 
         AnimatedContent(
-            targetState = view,
+            targetState = step,
             modifier = Modifier.weight(1f),
             transitionSpec = {
                 (
@@ -209,34 +222,64 @@ fun StudyScreen(
             },
             label = "round",
         ) { target ->
-            if (target == null) {
-                FinishedPanel(total = session.total, onDone = { onFinished(session.snapshot()) })
-            } else {
-                Round(
-                    view = target,
-                    picked = if (target.step == round) chosen else null,
-                    onPick = { position ->
-                        if (picked == null) {
-                            picked = position
-                            if (soundOn) feedback.play(correct = position == target.correctPosition)
-                        }
-                    },
-                )
+            val shown = target.card
+            val choice = target.view
+            when {
+                shown == null ->
+                    FinishedPanel(total = session.total, onDone = { onFinished(session.snapshot()) })
+
+                choice != null ->
+                    Round(
+                        view = choice,
+                        line = target.line,
+                        picked = if (target.index == round) chosen else null,
+                        onPick = { position ->
+                            if (picked == null) {
+                                picked = position
+                                if (soundOn) feedback.play(correct = position == choice.correctPosition)
+                            }
+                        },
+                    )
+
+                shown.mode == CardMode.Sort ->
+                    SortRound(
+                        task = shown.task as CodeTask,
+                        round = target.line,
+                        onSubmit = { correct ->
+                            if (soundOn) feedback.play(correct = correct)
+                            // two clean sorts and the card is asked to be written out instead
+                            session.sorted(correct)
+                            record(correct)
+                        },
+                    )
+
+                else ->
+                    CodeRound(
+                        task = shown.task as CodeTask,
+                        round = target.line,
+                        onSubmit = { correct ->
+                            if (soundOn) feedback.play(correct = correct)
+                            record(correct)
+                        },
+                    )
             }
         }
     }
 }
 
-/** Everything one round shows, captured so entering and leaving rounds can animate side by side */
+/** One round as it was when it began, so a round leaving the screen keeps showing itself */
+private data class Step(
+    val index: Int,
+    val card: Card?,
+    val line: String,
+    val view: RoundView?,
+)
+
+/** What a multiple choice round shows: the answers already in the order they are drawn */
 private data class RoundView(
-    val step: Int,
-    val round: Int,
-    val target: Int,
     val prompt: String,
     val answers: List<String>,
     val correctPosition: Int,
-    val remaining: Int,
-    val hard: Boolean,
 )
 
 /**
@@ -245,15 +288,20 @@ private data class RoundView(
  * The round matters more than the count: knowing this pass only wants four right answers is what
  * makes a set of two hundred feel finishable.
  */
-private fun roundLine(view: RoundView): String {
-    val left = if (view.remaining == 1) "letzte Frage" else "noch ${view.remaining}"
-    return "Runde ${view.round} · ${view.target}× richtig · $left"
+private fun roundLine(
+    round: Int,
+    target: Int,
+    remaining: Int,
+): String {
+    val left = if (remaining == 1) "letzte Frage" else "noch $remaining"
+    return "Runde $round · $target" + "× richtig · $left"
 }
 
 /** One question with its answers, as one block in the middle of the screen */
 @Composable
 private fun Round(
     view: RoundView,
+    line: String,
     picked: Int?,
     onPick: (Int) -> Unit,
 ) {
@@ -275,7 +323,7 @@ private fun Round(
         ) {
             Column {
                 Spacer(Modifier.height(6.dp))
-                Caption(text = roundLine(view))
+                Caption(text = line)
                 Spacer(Modifier.height(14.dp))
                 Text(
                     text = view.prompt,

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
 import net.bueffel.model.Card
+import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
 import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
@@ -200,6 +201,48 @@ class ScreenshotTest {
             }
         }
         capture("08-subtopics")
+    }
+
+    private val nodeDelete =
+        CodeTask(
+            prompt = "Vervollständige node_delete:\n\nvoid node_delete(node_t *n) {\n${CodeTask.GAP}\n}",
+            solution = "    free(n->data);\n    free(n);\n    n = NULL;",
+            topic = "Verkettete Listen",
+            tags = listOf("WS24"),
+        )
+
+    /** Sorting the model answer's lines, which is where a code card starts */
+    @Test
+    fun sortCode() {
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "sort",
+                    cards = listOf(Card(nodeDelete)),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                )
+            }
+        }
+        capture("09-sort-code")
+    }
+
+    /** The editor, once the card has been sorted cleanly twice */
+    @Test
+    fun writeCode() {
+        composeRule.setContent {
+            BueffelTheme {
+                StudyScreen(
+                    key = "write",
+                    cards = listOf(Card(nodeDelete, sorted = Card.SORTS_TO_WRITE)),
+                    soundOn = false,
+                    onFinished = {},
+                    onLeave = {},
+                )
+            }
+        }
+        capture("10-write-code")
     }
 
     private companion object {

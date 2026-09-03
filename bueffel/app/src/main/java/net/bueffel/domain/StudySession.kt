@@ -122,6 +122,20 @@ class StudySession(
         return updated
     }
 
+    /**
+     * Records how a code card's sort went, before the answer itself is recorded.
+     *
+     * A clean sort counts towards the promotion to writing the code out; a muddled one resets
+     * the count, because the point of the promotion is that the order is genuinely known and not
+     * that it was stumbled into twice.
+     */
+    fun sorted(clean: Boolean): Card? {
+        val card = queue.removeFirstOrNull() ?: return null
+        val updated = card.copy(sorted = if (clean) card.sorted + 1 else 0)
+        queue.addFirst(updated)
+        return updated
+    }
+
     /** Marks the current question as one the learner keeps getting wrong, or unmarks it */
     fun flag(hard: Boolean): Card? {
         val card = queue.removeFirstOrNull() ?: return null

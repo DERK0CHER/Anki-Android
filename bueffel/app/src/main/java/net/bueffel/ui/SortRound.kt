@@ -1,0 +1,164 @@
+package net.bueffel.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import net.bueffel.model.CodeTask
+import net.bueffel.ui.theme.BueffelColors
+import net.bueffel.ui.theme.BueffelShape
+
+/**
+ * Put the model answer's lines back in order.
+ *
+ * This is the easier half of writing code: the pieces are given, only the sequence is missing.
+ * A card starts here and is promoted to writing it out once it has been sorted cleanly twice, so
+ * the first meeting with a function is not a blank page.
+ *
+ * Every row is one line of code at one fixed height. That is not only for looks: a row that can
+ * wrap would make rows of different heights, and the drag would then have to measure each one to
+ * know which it is over. Code lines do not wrap here; they scroll sideways.
+ */
+@Composable
+fun SortRound(
+    task: CodeTask,
+    round: String,
+    onSubmit: (correct: Boolean) -> Unit,
+) {
+    val target = remember(task) { task.solutionLines }
+    val order = remember(task) { mutableStateListOf<Int>().also { it += target.indices.shuffled() } }
+    var verdict by remember(task) { mutableStateOf<Boolean?>(null) }
+
+    // which row the finger picked up, and how far it has travelled from where it started
+    var dragging by remember(task) { mutableIntStateOf(-1) }
+    var travel by remember(task) { mutableStateOf(0f) }
+    val rowPx = with(LocalDensity.current) { (ROW_HEIGHT + ROW_GAP).toPx() }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.height(6.dp))
+        Caption(text = round)
+        Spacer(Modifier.height(14.dp))
+        Text(
+            text = task.prompt,
+            style = MaterialTheme.typography.titleLarge,
+            color = BueffelColors.TextPrimary,
+        )
+        Spacer(Modifier.height(10.dp))
+        Caption(text = "Zeilen in die richtige Reihenfolge ziehen · lang drücken zum Greifen")
+        Spacer(Modifier.height(20.dp))
+
+        order.forEachIndexed { position, line ->
+            val held = position == dragging
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(ROW_HEIGHT)
+                        .graphicsLayer {
+                            if (held) {
+                                translationY = travel
+                                // lifted off the stack, so it is obvious which row is in hand
+                                shadowElevation = 12f
+                            }
+                        }.clip(RoundedCornerShape(10.dp))
+                        .background(if (held) BueffelColors.SurfaceRaised else BueffelColors.Surface)
+                        .pointerInput(task, position) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    dragging = position
+                                    travel = 0f
+                                },
+                                onDragEnd = {
+                                    dragging = -1
+                                    travel = 0f
+                                },
+                                onDragCancel = {
+                                    dragging = -1
+                                    travel = 0f
+                                },
+                                onDrag = { change, _ ->
+                                    travel += change.y
+                                    // swapped as soon as the finger has crossed a whole row, and
+                                    // the travel is reduced by that row so it keeps working for
+                                    // a drag across several
+                                    val from = dragging
+                                    if (from >= 0) {
+                                        val step = (travel / rowPx).toInt()
+                                        val to = (from + step).coerceIn(order.indices)
+                                        if (to != from) {
+                                            order.add(to, order.removeAt(from))
+                                            travel -= (to - from) * rowPx
+                                            dragging = to
+                                        }
+                                    }
+                                },
+                            )
+                        }.padding(horizontal = 14.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text = target[line],
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace,
+                    color = BueffelColors.TextPrimary,
+                    maxLines = 1,
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                )
+            }
+            Spacer(Modifier.height(ROW_GAP))
+        }
+
+        Spacer(Modifier.height(18.dp))
+        when (val settled = verdict) {
+            null ->
+                BueffelButton(
+                    text = "Prüfen",
+                    onClick = { verdict = order.toList() == target.indices.toList() },
+                )
+
+            else -> {
+                Text(
+                    text = if (settled) "Reihenfolge stimmt" else "Noch nicht die richtige Reihenfolge",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (settled) BueffelColors.Correct else BueffelColors.Wrong,
+                )
+                Spacer(Modifier.height(14.dp))
+                BueffelButton(text = "Weiter", onClick = { onSubmit(settled) })
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+    }
+}
+
+/** One line of code, one row, always the same height so the drag can count rows */
+private val ROW_HEIGHT = 46.dp
+
+private val ROW_GAP = BueffelShape.Gap / 2

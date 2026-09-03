@@ -2,8 +2,8 @@ package net.bueffel.importer
 
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
-import net.bueffel.model.Question
 import net.bueffel.model.Subtopic
+import net.bueffel.model.Task
 
 /** Turns freshly imported questions into a topic with its parts */
 object DeckBuilder {
@@ -17,9 +17,9 @@ object DeckBuilder {
     fun build(
         id: String,
         name: String,
-        questions: List<Question>,
+        questions: List<Task>,
     ): Deck {
-        val grouped = LinkedHashMap<String, MutableList<Question>>()
+        val grouped = LinkedHashMap<String, MutableList<Task>>()
         for (question in questions) {
             val topic = question.topic?.trim()?.takeIf { it.isNotEmpty() } ?: UNSORTED
             grouped.getOrPut(topic) { mutableListOf() } += question

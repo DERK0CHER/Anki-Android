@@ -2,6 +2,8 @@ package net.bueffel
 
 import net.bueffel.domain.StudySession
 import net.bueffel.model.Card
+import net.bueffel.model.CardMode
+import net.bueffel.model.CodeTask
 import net.bueffel.model.Question
 import net.bueffel.model.strengthOf
 import org.junit.Assert.assertEquals
@@ -80,17 +82,17 @@ class StudySessionTest {
 
         session.answer(correct = true)
 
-        assertNotEquals(first?.question?.prompt, session.current()?.question?.prompt)
+        assertNotEquals(first?.task?.prompt, session.current()?.task?.prompt)
     }
 
     @Test
     fun `other questions come in between before one returns`() {
         val session = StudySession(deck(12))
-        val first = requireNotNull(session.current()).question.prompt
+        val first = requireNotNull(session.current()).task.prompt
 
         session.answer(correct = true)
         var seenBefore = 0
-        while (requireNotNull(session.current()).question.prompt != first) {
+        while (requireNotNull(session.current()).task.prompt != first) {
             seenBefore++
             session.answer(correct = true)
         }
@@ -102,11 +104,11 @@ class StudySessionTest {
     fun `the wait grows as a question gets stronger`() {
         // a whole set on its first box, so every answer here re-queues rather than resting
         val session = StudySession(deck(StudySession.WORKING_SET, box = 1))
-        val first = requireNotNull(session.current()).question.prompt
+        val first = requireNotNull(session.current()).task.prompt
 
         session.answer(correct = true)
         var seenBefore = 0
-        while (requireNotNull(session.current()).question.prompt != first) {
+        while (requireNotNull(session.current()).task.prompt != first) {
             seenBefore++
             session.answer(correct = true)
         }
@@ -180,7 +182,7 @@ class StudySessionTest {
         // the rotation started as questions 1 to 12, so anything past that is newly mixed in
         val next = mutableSetOf<String>()
         repeat(4) {
-            next += requireNotNull(session.current()).question.prompt
+            next += requireNotNull(session.current()).task.prompt
             session.answer(correct = true)
         }
 
@@ -193,7 +195,7 @@ class StudySessionTest {
         val seen = mutableSetOf<String>()
 
         repeat(60) {
-            seen += requireNotNull(session.current()).question.prompt
+            seen += requireNotNull(session.current()).task.prompt
             session.answer(correct = true)
         }
 
@@ -214,11 +216,11 @@ class StudySessionTest {
     fun `a question marked hard comes back in half the time`() {
         val session = StudySession(deck(StudySession.WORKING_SET, box = 1))
         session.flag(hard = true)
-        val first = requireNotNull(session.current()).question.prompt
+        val first = requireNotNull(session.current()).task.prompt
 
         session.answer(correct = true)
         var seenBefore = 0
-        while (requireNotNull(session.current()).question.prompt != first) {
+        while (requireNotNull(session.current()).task.prompt != first) {
             seenBefore++
             session.answer(correct = true)
         }
@@ -289,5 +291,39 @@ class StudySessionTest {
 
         assertEquals(20, session.snapshot().size)
         assertEquals(2, session.roundNumber)
+    }
+
+    @Test
+    fun `a code card is sorted first and only then written out`() {
+        val cards = listOf(Card(CodeTask(prompt = "Schreibe es", solution = "a();\nb();")))
+        val session = StudySession(cards)
+
+        assertEquals(CardMode.Sort, requireNotNull(session.current()).mode)
+
+        session.sorted(clean = true)
+        session.answer(correct = true)
+        session.sorted(clean = true)
+
+        assertEquals(CardMode.Write, requireNotNull(session.current()).mode)
+    }
+
+    @Test
+    fun `a muddled sort puts the promotion back to the start`() {
+        val cards = listOf(Card(CodeTask(prompt = "Schreibe es", solution = "a();")))
+        val session = StudySession(cards)
+
+        session.sorted(clean = true)
+        session.answer(correct = true)
+        session.sorted(clean = false)
+
+        assertEquals(0, requireNotNull(session.current()).sorted)
+        assertEquals(CardMode.Sort, requireNotNull(session.current()).mode)
+    }
+
+    @Test
+    fun `a multiple choice card is never asked to be sorted`() {
+        val session = StudySession(deck(1))
+
+        assertEquals(CardMode.Choose, requireNotNull(session.current()).mode)
     }
 }

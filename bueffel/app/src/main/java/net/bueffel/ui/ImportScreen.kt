@@ -26,8 +26,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import net.bueffel.importer.QuestionParser
-import net.bueffel.model.Question
+import net.bueffel.importer.CardImport
+import net.bueffel.model.Task
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelShape
 
@@ -45,14 +45,14 @@ import net.bueffel.ui.theme.BueffelShape
 @Composable
 fun ImportScreen(
     onCancel: () -> Unit,
-    onImport: (name: String, questions: List<Question>) -> Unit,
+    onImport: (name: String, tasks: List<Task>) -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
-    var parsed by remember { mutableStateOf<QuestionParser.ImportResult?>(null) }
+    var parsed by remember { mutableStateOf<CardImport.Result?>(null) }
     var promptCopied by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
 
-    val found = parsed?.questions.orEmpty()
+    val found = parsed?.tasks.orEmpty()
 
     Column(
         modifier =
@@ -101,7 +101,7 @@ fun ImportScreen(
             Spacer(Modifier.height(14.dp))
             BueffelButton(
                 text = "Aus Zwischenablage einlesen",
-                onClick = { parsed = QuestionParser.parse(clipboard.getText()?.text.orEmpty()) },
+                onClick = { parsed = CardImport.parse(clipboard.getText()?.text.orEmpty()) },
             )
 
             parsed?.let { result ->
@@ -116,7 +116,7 @@ fun ImportScreen(
                 NameField(value = name, onValueChange = { name = it })
                 Spacer(Modifier.height(20.dp))
                 BueffelButton(
-                    text = "${found.size} Fragen übernehmen",
+                    text = "${found.size} Karten übernehmen",
                     onClick = { onImport(name.ifBlank { defaultName(found) }, found) },
                 )
             }
@@ -131,8 +131,8 @@ fun ImportScreen(
 
 /** What the clipboard turned out to contain */
 @Composable
-private fun ResultPanel(result: QuestionParser.ImportResult) {
-    val found = result.questions.size
+private fun ResultPanel(result: CardImport.Result) {
+    val found = result.tasks.size
     Column(
         modifier =
             Modifier
@@ -145,8 +145,8 @@ private fun ResultPanel(result: QuestionParser.ImportResult) {
             text =
                 when {
                     found == 0 -> "Nichts erkannt"
-                    result.skipped == 0 -> "$found Fragen erkannt"
-                    else -> "$found Fragen erkannt, ${result.skipped} übersprungen"
+                    result.skipped == 0 -> "$found Karten erkannt"
+                    else -> "$found Karten erkannt, ${result.skipped} übersprungen"
                 },
             style = MaterialTheme.typography.titleLarge,
             color = if (found == 0) BueffelColors.Wrong else BueffelColors.Correct,
@@ -155,16 +155,21 @@ private fun ResultPanel(result: QuestionParser.ImportResult) {
         if (found == 0) {
             Text(
                 text =
-                    "Liegt die Antwort der KI wirklich in der Zwischenablage? Erwartet wird " +
-                        "das JSON aus dem Prompt oben.",
+                    "Liegt der Text wirklich in der Zwischenablage? Erwartet wird das JSON " +
+                        "aus dem Prompt oben, oder eine Kartendatei mit front:/back:-Feldern.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = BueffelColors.TextSecondary,
             )
         } else {
-            Caption(text = "ERSTE FRAGE")
+            Caption(text = if (result.format == CardImport.Format.CardFile) "KARTENDATEI" else "ERSTE FRAGE")
             Spacer(Modifier.height(4.dp))
             Text(
-                text = result.questions.first().prompt,
+                text =
+                    result.tasks
+                        .first()
+                        .prompt
+                        .lineSequence()
+                        .first(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = BueffelColors.TextSecondary,
             )
@@ -206,9 +211,9 @@ private fun NameField(
 }
 
 /** Names a set after its first question, so nothing ends up called just "Fragen" */
-private fun defaultName(questions: List<Question>): String {
+private fun defaultName(tasks: List<Task>): String {
     val first =
-        questions
+        tasks
             .firstOrNull()
             ?.prompt
             .orEmpty()

@@ -1,6 +1,7 @@
 package net.bueffel.importer
 
 import net.bueffel.model.Question
+import net.bueffel.model.Task
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -17,7 +18,7 @@ import org.json.JSONObject
  */
 object QuestionParser {
     data class ImportResult(
-        val questions: List<Question>,
+        val questions: List<Task>,
         val skipped: Int,
     )
 
