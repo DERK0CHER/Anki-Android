@@ -115,3 +115,5 @@ cd bueffel
 ```
 
 Fertige APKs hängen an der rollenden Vorabversion `bueffel-latest`.
+
+Was als Nächstes ansteht und was schon steht: [ROADMAP.md](ROADMAP.md).
