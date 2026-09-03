@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.bueffel.domain.Schedule
+import net.bueffel.model.Card
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelMotion
 import net.bueffel.ui.theme.BueffelShape
@@ -123,6 +125,32 @@ fun countLine(
 
 /** "1 Frage", "12 Fragen". Trivial, and it has now been got wrong in three places. */
 fun questionCount(questions: Int): String = "$questions ${if (questions == 1) "Frage" else "Fragen"}"
+
+/**
+ * What is worth asking today, or when it will be.
+ *
+ * The second half matters as much as the first: a set with nothing due is not a set that is
+ * finished, and saying when it comes back is what stops it being opened and drilled anyway.
+ */
+fun dueLine(
+    cards: List<Card>,
+    today: Long,
+): String {
+    val due = cards.count { it.isDue(today) }
+    if (due > 0) return "$due fällig"
+    val days = Schedule.nextDue(cards, today) ?: return "nichts fällig"
+    return if (days <= 1) "morgen wieder" else "in $days Tagen wieder"
+}
+
+/** "34 min geübt", or nothing at all while there is nothing worth saying */
+fun timeLine(seconds: Long): String? {
+    val minutes = seconds / 60
+    return when {
+        minutes < 1 -> null
+        minutes < 90 -> "$minutes min geübt"
+        else -> "${minutes / 60} h ${minutes % 60} min geübt"
+    }
+}
 
 /** A small caption above a block, in the grey the reference screens use for secondary text */
 @Composable

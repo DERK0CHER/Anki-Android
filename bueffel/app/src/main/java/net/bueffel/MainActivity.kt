@@ -26,6 +26,7 @@ import net.bueffel.data.ImageStore
 import net.bueffel.data.Settings
 import net.bueffel.domain.Exam
 import net.bueffel.domain.ExamDraw
+import net.bueffel.domain.Schedule
 import net.bueffel.importer.DeckBuilder
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
@@ -82,6 +83,7 @@ private sealed interface Screen {
         val deckId: String,
         val subtopicId: String?,
         val tags: Set<String> = emptySet(),
+        val pick: Pick = Pick.Due,
     ) : Screen
 
     /** Setting up a mock paper: how many questions out of each part, and how long */
@@ -93,6 +95,15 @@ private sealed interface Screen {
     data class Sitting(
         val deckId: String,
     ) : Screen
+}
+
+/** Which cards a session takes */
+private enum class Pick {
+    /** What the schedule says is worth asking today */
+    Due,
+
+    /** The ones that keep being lost again, whenever the calendar says they are next due */
+    Leeches,
 }
 
 @Composable
@@ -274,6 +285,7 @@ private fun BueffelApp(
                     onBack = { screen = Screen.Decks },
                     onStudyTagged = { screen = Screen.Study(deck.id, null, it) },
                     onExam = { screen = Screen.ExamSetup(deck.id) },
+                    onStudyLeeches = { screen = Screen.Study(deck.id, null, pick = Pick.Leeches) },
                 )
             }
         }
@@ -318,11 +330,17 @@ private fun BueffelApp(
 
         is Screen.Study -> {
             val deck = decks.firstOrNull { it.id == current.deckId }
+            // What the session gets to ask. The schedule has the last word: everything still
+            // being learned, plus the reviews that have come round, and nothing else - the
+            // point of a date is that a card is not worth asking before it.
+            val part = deck?.subtopics?.firstOrNull { it.id == current.subtopicId }?.cards
             val cards =
-                if (current.subtopicId == null) {
-                    deck?.cardsTagged(current.tags)
-                } else {
-                    deck?.subtopics?.firstOrNull { it.id == current.subtopicId }?.cards
+                when {
+                    deck == null -> null
+                    current.pick == Pick.Leeches -> Schedule.forReview(deck.leeches)
+                    current.subtopicId == null -> Schedule.due(deck.cardsTagged(current.tags))
+                    part == null -> null
+                    else -> Schedule.due(part)
                 }
             if (deck == null || cards == null) {
                 LaunchedEffect(current) { screen = Screen.Decks }
@@ -332,7 +350,7 @@ private fun BueffelApp(
                 StudyScreen(
                     // the selection is part of what is being studied: picking other tags is a
                     // different set of cards and therefore a different session
-                    key = "${deck.id}/${current.subtopicId}/${current.tags.sorted()}",
+                    key = "${deck.id}/${current.subtopicId}/${current.tags.sorted()}/${current.pick}",
                     cards = cards,
                     soundOn = soundOn,
                     onFinished = { finishStudying(deck.id, current.subtopicId, it) },

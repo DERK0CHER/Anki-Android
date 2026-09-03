@@ -98,6 +98,13 @@ class DeckStore(
                     .put("box", card.box)
                     .put("hard", card.hard)
                     .put("tags", JSONArray().also { tags -> card.task.tags.forEach(tags::put) })
+            // the schedule, written only when there is one: a card that has never been finished
+            // carries the defaults and there is no sense filling the file with them
+            if (card.due > 0) json.put("due", card.due)
+            if (card.interval > 0) json.put("interval", card.interval)
+            if (card.ease != Card.EASE_START) json.put("ease", card.ease)
+            if (card.lapses > 0) json.put("lapses", card.lapses)
+            if (card.seconds > 0) json.put("seconds", card.seconds)
             card.task.topic?.let { json.put("topic", it) }
             card.task.given?.let { json.put("given", it) }
             card.task.image?.let { json.put("image", it) }
@@ -189,6 +196,11 @@ class DeckStore(
                     box = json.optInt("box", 0),
                     hard = json.optBoolean("hard", false),
                     sorted = json.optInt("sorted", 0),
+                    due = json.optLong("due", 0),
+                    interval = json.optInt("interval", 0),
+                    ease = json.optDouble("ease", Card.EASE_START),
+                    lapses = json.optInt("lapses", 0),
+                    seconds = json.optLong("seconds", 0),
                 )
         }
         return cards
@@ -280,12 +292,16 @@ class DeckStore(
          * 1 was a flat list of cards per deck, 2 groups them into subtopics, 3 gives every card
          * a type so a card can hold code to write rather than answers to pick, 4 keeps the code
          * on a card's front apart from its prose so it can be set as code, 5 adds the card that
-         * makes its own numbers up, 6 the pictures and the card that is answered on paper.
+         * makes its own numbers up, 6 the pictures and the card that is answered on paper, 7 the
+         * date a finished card comes back on.
          *
          * A card saved by 3 has all of its front in the prompt, which still reads and still
-         * works; it is set as prose until the file it came from is imported again.
+         * works; it is set as prose until the file it came from is imported again. One saved by
+         * 6 has no date, which reads as due now - so an old file simply asks everything again,
+         * which is the right answer for a set that has been sitting there since before there
+         * were dates at all.
          */
-        private const val VERSION = 6
+        private const val VERSION = 7
 
         private const val CHOICE = "choice"
         private const val CODE = "code"

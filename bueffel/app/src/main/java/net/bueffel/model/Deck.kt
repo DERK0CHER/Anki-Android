@@ -20,6 +20,19 @@ data class Card(
      * writing it out once it has been sorted cleanly [SORTS_TO_WRITE] times.
      */
     val sorted: Int = 0,
+    /**
+     * The day this card is worth asking again, counted from 1970. Zero means as soon as you
+     * like, which is where every card starts and where one that is still being learned stays.
+     */
+    val due: Long = 0,
+    /** Days between this card being finished and being asked again */
+    val interval: Int = 0,
+    /** How kindly the interval grows. Higher is easier; this is SM-2's E-factor. */
+    val ease: Double = EASE_START,
+    /** How often it has been learned and then got wrong again */
+    val lapses: Int = 0,
+    /** Seconds spent on this card, all sessions together */
+    val seconds: Long = 0,
 ) {
     /** How this card should be asked now */
     val mode: CardMode
@@ -41,6 +54,18 @@ data class Card(
 
     val isLearned: Boolean get() = box >= LEARNED_BOX
 
+    /**
+     * A card that keeps being learned and then lost again.
+     *
+     * Anki calls these leeches. The point of naming them is that they are not a scheduling
+     * problem: a card that has gone five times is usually a badly written card, or two facts
+     * pretending to be one, and no interval will fix either.
+     */
+    val isLeech: Boolean get() = lapses >= LEECH_LAPSES
+
+    /** Whether this card is worth asking on [today], counted in days from 1970 */
+    fun isDue(today: Long): Boolean = !isLearned || due <= today
+
     /** One box up on a right answer; half the way back on a wrong one */
     fun answered(correct: Boolean): Card = copy(box = if (correct) (box + 1).coerceAtMost(LEARNED_BOX) else box / 2)
 
@@ -50,6 +75,12 @@ data class Card(
 
         /** Clean sorts before a code task stops being sorted and has to be written out */
         const val SORTS_TO_WRITE = 2
+
+        /** Where SM-2 starts a card's ease, and what a new card carries */
+        const val EASE_START = 2.5
+
+        /** Times a card may be lost again before it is called a leech */
+        const val LEECH_LAPSES = 5
     }
 }
 
@@ -119,6 +150,12 @@ data class Subtopic(
     val learnedCount: Int get() = cards.count { it.isLearned }
 
     val progress: Float get() = progressOf(cards)
+
+    /** How many of these are worth asking today */
+    fun dueCount(today: Long): Int = cards.count { it.isDue(today) }
+
+    /** Seconds spent in this part, which is the only honest measure of what it cost */
+    val seconds: Long get() = cards.sumOf { it.seconds }
 }
 
 /** A named topic, made of one or more subtopics */
@@ -130,6 +167,20 @@ data class Deck(
     val cards: List<Card> get() = subtopics.flatMap { it.cards }
 
     val learnedCount: Int get() = cards.count { it.isLearned }
+
+    /** How many questions this topic would ask today */
+    fun dueCount(today: Long): Int = cards.count { it.isDue(today) }
+
+    /** Seconds spent on this topic, all its parts together */
+    val seconds: Long get() = cards.sumOf { it.seconds }
+
+    /**
+     * The cards that keep being learned and lost again.
+     *
+     * Worth a list of their own because they are usually not a scheduling problem: a card that
+     * has gone five times is a badly written card, or two facts pretending to be one.
+     */
+    val leeches: List<Card> get() = cards.filter { it.isLeech }
 
     /**
      * Every label anything in this topic carries, in the order they first turn up.

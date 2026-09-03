@@ -152,9 +152,14 @@ fun StudyScreen(
     // back the cards as they were before any of this was answered
     BackHandler { onLeave(session.snapshot()) }
 
+    // when the question went up, so the time spent on it can be added to it. Kept per round, so
+    // a question left on screen while the phone is put down is capped by the session rather than
+    // by this.
+    val shownAt = remember(round) { System.currentTimeMillis() }
+
     /** Records an answer from whichever mode produced it and moves on */
     fun record(correct: Boolean) {
-        session.answer(correct = correct)
+        session.answer(correct = correct, seconds = (System.currentTimeMillis() - shownAt) / 1000)
         picked = null
         round++
         onProgress(session.snapshot())

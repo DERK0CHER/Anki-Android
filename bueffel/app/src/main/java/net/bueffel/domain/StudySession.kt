@@ -23,6 +23,8 @@ import net.bueffel.model.progressOf
  */
 class StudySession(
     cards: List<Card>,
+    /** The day the session is happening on, which is what a finished card is dated from */
+    private val today: Long = Schedule.today(),
 ) {
     /** In rotation now */
     private val queue: ArrayDeque<Card> = ArrayDeque()
@@ -40,6 +42,15 @@ class StudySession(
     /** Answers given since the last new question came in */
     private var sinceNew = 0
 
+    /**
+     * The questions that have gone wrong at least once today, by identity.
+     *
+     * What a card's next date is worked out from. SM-2 grades a review, and a review here is the
+     * whole session rather than one answer - so what counts is whether the card got all the way
+     * back to the end of the ladder without a slip, not what happened on the last question.
+     */
+    private val slipped = mutableSetOf<String>()
+
     /** Everything as it was before the last answer, for [undo] */
     private var previous: State? = null
 
@@ -50,6 +61,7 @@ class StudySession(
         val learned: List<Card>,
         val round: Int,
         val sinceNew: Int,
+        val slipped: Set<String>,
     )
 
     init {
@@ -105,12 +117,18 @@ class StudySession(
      *
      * @return the card in its new state, or `null` if there was nothing to answer
      */
-    fun answer(correct: Boolean): Card? {
+    fun answer(
+        correct: Boolean,
+        seconds: Long = 0,
+    ): Card? {
         val card = queue.removeFirstOrNull() ?: return null
         previous = state().copy(queue = listOf(card) + queue.toList())
-        val updated = card.answered(correct)
+        if (!correct) slipped += card.task.identity
+        val updated = card.answered(correct).copy(seconds = card.seconds + seconds.coerceIn(0, MAX_SECONDS))
         when {
-            updated.isLearned -> learned += updated
+            // finished for good: this is where it gets its next date, from how the whole
+            // session went rather than from this one answer
+            updated.isLearned -> learned += Schedule.reviewed(updated, today, lapsed = card.task.identity in slipped)
             // done for this round; the next one will ask it again for more
             updated.box >= target -> resting += updated
             else -> queue.add(gapFor(updated).coerceAtMost(queue.size), updated)
@@ -161,6 +179,8 @@ class StudySession(
         learned.addAll(before.learned)
         round = before.round
         sinceNew = before.sinceNew
+        slipped.clear()
+        slipped.addAll(before.slipped)
         previous = null
         return true
     }
@@ -168,7 +188,8 @@ class StudySession(
     /** Everything the session knows about, for writing back to storage */
     fun snapshot(): List<Card> = queue.toList() + reserve.toList() + resting + learned
 
-    private fun state() = State(queue.toList(), reserve.toList(), resting.toList(), learned.toList(), round, sinceNew)
+    private fun state() =
+        State(queue.toList(), reserve.toList(), resting.toList(), learned.toList(), round, sinceNew, slipped.toSet())
 
     /**
      * Starts the next round once this one has nothing left to ask.
@@ -254,5 +275,14 @@ class StudySession(
 
         /** Where a new question lands: soon, but not under a finger that is already moving */
         const val NEW_POSITION = 1
+
+        /**
+         * The most one question may add to the clock.
+         *
+         * A card left open while the phone is put down would otherwise say a learner spent two
+         * hours on one question, and the time per part is only worth showing if it means
+         * something.
+         */
+        const val MAX_SECONDS = 300L
     }
 }

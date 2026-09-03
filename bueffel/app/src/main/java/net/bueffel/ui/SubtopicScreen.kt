@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import net.bueffel.domain.Schedule
 import net.bueffel.model.Deck
 import net.bueffel.model.Subtopic
 import net.bueffel.ui.theme.BueffelColors
@@ -55,11 +56,13 @@ fun SubtopicScreen(
     onBack: () -> Unit,
     onStudyTagged: (Set<String>) -> Unit = {},
     onExam: () -> Unit = {},
+    onStudyLeeches: () -> Unit = {},
 ) {
     // Which labels are being narrowed down to. Held here rather than by the caller: it is the
     // question this screen asks, and it is answered again every time the screen is opened.
     val selected = remember(deck.id) { mutableStateListOf<String>() }
     val tagged = deck.cardsTagged(selected.toSet())
+    val today = remember { Schedule.today() }
 
     Column(
         modifier =
@@ -100,6 +103,8 @@ fun SubtopicScreen(
         )
         Spacer(Modifier.height(8.dp))
         Caption(text = countLine(deck.cards.size, deck.learnedCount))
+        Spacer(Modifier.height(4.dp))
+        Caption(text = listOfNotNull(dueLine(deck.cards, today), timeLine(deck.seconds)).joinToString(" · "))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -107,7 +112,7 @@ fun SubtopicScreen(
             contentPadding = PaddingValues(top = 24.dp, bottom = 4.dp),
         ) {
             items(deck.subtopics, key = { it.id }) { subtopic ->
-                SubtopicRow(subtopic = subtopic, onClick = { onOpen(subtopic) })
+                SubtopicRow(subtopic = subtopic, today = today, onClick = { onOpen(subtopic) })
             }
         }
 
@@ -130,6 +135,16 @@ fun SubtopicScreen(
                 text = if (tagged.isEmpty()) "Keine Karte mit dieser Auswahl" else "${tagged.size} Karten lernen",
                 enabled = tagged.isNotEmpty(),
                 onClick = { onStudyTagged(selected.toSet()) },
+            )
+        }
+        // The cards that keep going: worth their own way in, because the answer to a leech is
+        // usually to rewrite it rather than to see it again, and that starts with finding it.
+        if (deck.leeches.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            BueffelButton(
+                text = "${deck.leeches.size} schwierige Karten",
+                onClick = onStudyLeeches,
+                filled = false,
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -177,6 +192,7 @@ private fun TagRow(
 @Composable
 private fun SubtopicRow(
     subtopic: Subtopic,
+    today: Long,
     onClick: () -> Unit,
 ) {
     Column(
@@ -195,6 +211,11 @@ private fun SubtopicRow(
         )
         Spacer(Modifier.height(4.dp))
         Caption(text = countLine(subtopic.cards.size, subtopic.learnedCount))
+        Spacer(Modifier.height(2.dp))
+        Caption(
+            text = dueLine(subtopic.cards, today),
+            color = if (subtopic.dueCount(today) > 0) BueffelColors.Almost else BueffelColors.TextMuted,
+        )
         Spacer(Modifier.height(14.dp))
         ProgressBar(fraction = subtopic.progress, height = 10.dp)
     }

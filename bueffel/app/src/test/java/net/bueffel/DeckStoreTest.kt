@@ -111,6 +111,44 @@ class DeckStoreTest {
     }
 
     @Test
+    fun `the schedule survives being written and read back`() {
+        val scheduled =
+            Card(
+                task = Question("Frage", listOf("eins", "zwei"), 0),
+                box = Card.LEARNED_BOX,
+                due = 20_000,
+                interval = 12,
+                ease = 2.3,
+                lapses = 2,
+                seconds = 480,
+            )
+        store.save(listOf(Deck("a", "Thema", listOf(Subtopic("a-0", "Teil", listOf(scheduled))))))
+
+        assertEquals(scheduled, store.load().single().cards.single())
+    }
+
+    @Test
+    fun `a card from before there were dates is due at once`() {
+        // version 6 wrote no date at all, and a set that has been sitting there since then is
+        // exactly the set that should be asked again
+        file.writeText(
+            """
+            {"version":6,"decks":[{"id":"old","name":"Alt","subtopics":[
+              {"id":"old-0","name":"Teil","cards":[
+                {"type":"choice","prompt":"Frage","answers":["eins","zwei"],"correctIndex":0,"box":8}
+              ]}
+            ]}]}
+            """.trimIndent(),
+        )
+
+        val loaded = store.load().single().cards.single()
+
+        assertEquals(0L, loaded.due)
+        assertEquals(Card.EASE_START, loaded.ease, 0.0001)
+        assertTrue(loaded.isDue(20_000))
+    }
+
+    @Test
     fun `a card answered on paper survives being written and read back`() {
         val task =
             SketchTask(

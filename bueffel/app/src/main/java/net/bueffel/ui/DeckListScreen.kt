@@ -19,10 +19,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import net.bueffel.domain.Schedule
 import net.bueffel.model.Deck
 import net.bueffel.ui.theme.BueffelColors
 import net.bueffel.ui.theme.BueffelShape
@@ -44,6 +46,10 @@ fun DeckListScreen(
     onExport: () -> Unit = {},
     onRestore: () -> Unit = {},
 ) {
+    // read once for the whole list: every row asks the same question of the calendar, and a
+    // screen that answered it twice differently would be a screen opened at midnight
+    val today = remember { Schedule.today() }
+
     Column(
         modifier =
             Modifier
@@ -70,7 +76,7 @@ fun DeckListScreen(
                 contentPadding = PaddingValues(top = 24.dp, bottom = 4.dp),
             ) {
                 items(decks, key = { it.id }) { deck ->
-                    DeckRow(deck = deck, onClick = { onOpen(deck) })
+                    DeckRow(deck = deck, today = today, onClick = { onOpen(deck) })
                 }
             }
         }
@@ -143,6 +149,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
 @Composable
 private fun DeckRow(
     deck: Deck,
+    today: Long,
     onClick: () -> Unit,
 ) {
     Column(
@@ -161,6 +168,13 @@ private fun DeckRow(
         )
         Spacer(Modifier.height(6.dp))
         Caption(text = deckLine(deck))
+        Spacer(Modifier.height(4.dp))
+        // what the schedule has to say, in its own colour when there is something to do: this
+        // is the line the app is opened for
+        Caption(
+            text = dueLine(deck.cards, today),
+            color = if (deck.dueCount(today) > 0) BueffelColors.Almost else BueffelColors.TextMuted,
+        )
         Spacer(Modifier.height(16.dp))
         ProgressBar(fraction = deck.progress, height = 12.dp)
     }

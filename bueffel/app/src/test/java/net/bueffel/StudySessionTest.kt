@@ -321,6 +321,44 @@ class StudySessionTest {
     }
 
     @Test
+    fun `a question finished cleanly is dated further out than one that slipped`() {
+        val clean = StudySession(deck(1), today = 100)
+        repeat(Card.LEARNED_BOX) { clean.answer(correct = true) }
+
+        val slipped = StudySession(deck(1), today = 100)
+        slipped.answer(correct = false)
+        while (slipped.current() != null) slipped.answer(correct = true)
+
+        val cleanly = clean.snapshot().single()
+        val badly = slipped.snapshot().single()
+        assertEquals(0, cleanly.lapses)
+        assertEquals(1, badly.lapses)
+        assertTrue(cleanly.ease > badly.ease)
+        assertEquals(101L, cleanly.due)
+    }
+
+    @Test
+    fun `the slip that counts is anywhere in the session, not just the last answer`() {
+        val session = StudySession(deck(1), today = 0)
+
+        session.answer(correct = false)
+        while (session.current() != null) session.answer(correct = true)
+
+        // it ended on a run of right answers, and it is still a card that went wrong today
+        assertEquals(1, session.snapshot().single().lapses)
+    }
+
+    @Test
+    fun `the time on a question is added to it, and one question cannot add an hour`() {
+        val session = StudySession(deck(1), today = 0)
+
+        session.answer(correct = true, seconds = 30)
+        session.answer(correct = true, seconds = 99_999)
+
+        assertEquals(30 + StudySession.MAX_SECONDS, session.snapshot().single().seconds)
+    }
+
+    @Test
     fun `a one line answer is typed out rather than sorted`() {
         val card = Card(CodeTask(prompt = "Spaltenvektor anlegen", solution = "d = [3;6;2;5;9]"))
 
