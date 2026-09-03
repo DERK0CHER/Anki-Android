@@ -3,7 +3,8 @@
 Die zehn Punkte in der Reihenfolge, in der sie gestellt wurden — Reihenfolge ist Priorität.
 Erledigtes steht mit dabei, damit klar ist, worauf aufgesetzt wird.
 
-Stand: `5e039a9`. Was hier als erledigt steht, ist gebaut und durch Tests belegt; was als
+Stand: Kopf von `claude/anki-multiple-choice-buttons-xss2q6`. Was hier als erledigt steht, ist
+gebaut und durch Tests belegt; was als
 **ungeprüft** markiert ist, ließ sich in der Cloud-Session nicht verifizieren (kein Gerät, kein
 Emulator, kein Ton) und ist beim ersten echten Lauf zu kontrollieren.
 

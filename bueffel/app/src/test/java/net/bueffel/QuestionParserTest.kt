@@ -1,6 +1,8 @@
 package net.bueffel
 
 import net.bueffel.importer.QuestionParser
+import net.bueffel.importer.QuestionParser.ImportResult
+import net.bueffel.model.Question
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -16,6 +18,12 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class QuestionParserTest {
+    /**
+     * The parser hands back the wider [net.bueffel.model.Task], because a card can also be code.
+     * This one only ever makes choice cards, so the answers are reached through a cast.
+     */
+    private val ImportResult.choices: List<Question> get() = questions.map { it as Question }
+
     // region JSON, the format the prompt asks for
 
     @Test
@@ -33,7 +41,7 @@ class QuestionParserTest {
 
         assertEquals(1, result.questions.size)
         assertEquals(0, result.skipped)
-        val question = result.questions.single()
+        val question = result.choices.single()
         assertEquals("Hauptstadt von Frankreich?", question.prompt)
         assertEquals(listOf("Berlin", "Paris", "Rom"), question.answers)
         assertEquals("Paris", question.correctAnswer)
@@ -46,7 +54,7 @@ class QuestionParserTest {
                 """[{"question": "Q?", "answers": ["eins", "zwei"], "correct": "zwei"}]""",
             )
 
-        assertEquals(1, result.questions.single().correctIndex)
+        assertEquals(1, result.choices.single().correctIndex)
     }
 
     @Test
@@ -78,7 +86,7 @@ class QuestionParserTest {
                 """Gerne! [{"question": "Q?", "answers": ["a", "b"], "correct": 1}] Sag Bescheid.""",
             )
 
-        assertEquals(1, result.questions.single().correctIndex)
+        assertEquals(1, result.choices.single().correctIndex)
     }
 
     @Test
@@ -125,7 +133,7 @@ class QuestionParserTest {
                 """.trimIndent(),
             )
 
-        val question = result.questions.single()
+        val question = result.choices.single()
         assertEquals("Was bedeutet ein durchgezogener Mittelstreifen?", question.prompt)
         assertEquals("Er darf nicht überfahren werden", question.correctAnswer)
     }
@@ -143,7 +151,7 @@ class QuestionParserTest {
                 """.trimIndent(),
             )
 
-        assertEquals("50 km/h", result.questions.single().correctAnswer)
+        assertEquals("50 km/h", result.choices.single().correctAnswer)
     }
 
     @Test
@@ -164,8 +172,8 @@ class QuestionParserTest {
             )
 
         assertEquals(2, result.questions.size)
-        assertEquals(0, result.questions[0].correctIndex)
-        assertEquals(1, result.questions[1].correctIndex)
+        assertEquals(0, result.choices[0].correctIndex)
+        assertEquals(1, result.choices[1].correctIndex)
     }
 
     @Test
@@ -180,7 +188,7 @@ class QuestionParserTest {
                 """.trimIndent(),
             )
 
-        val question = result.questions.single()
+        val question = result.choices.single()
         assertEquals("Was gilt an dieser Kreuzung?", question.prompt)
         assertEquals(2, question.answers.size)
     }
