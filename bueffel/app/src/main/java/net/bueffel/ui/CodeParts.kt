@@ -100,14 +100,26 @@ fun TaskFront(
     }
 }
 
+/** Which characters the bar offers, because a hexadecimal answer wants none of the braces */
+enum class SymbolSet {
+    /** Braces, brackets and the arrows, for writing C */
+    Code,
+
+    /** The six digits a number keyboard does not have */
+    Hex,
+}
+
 /** The characters a German phone keyboard hides three menus deep, on one scrolling row */
 @Composable
-fun SymbolBar(onInsert: (String) -> Unit) {
+fun SymbolBar(
+    onInsert: (String) -> Unit,
+    set: SymbolSet = SymbolSet.Code,
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
     ) {
-        for (symbol in SYMBOLS) {
+        for (symbol in if (set == SymbolSet.Hex) HEX else SYMBOLS) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier =
@@ -162,4 +174,22 @@ private val SYMBOLS =
         Symbol("="),
         Symbol("\""),
         Symbol("%"),
+    )
+
+/**
+ * What a hexadecimal answer needs and a keyboard does not offer together.
+ *
+ * The letters are on the keyboard, but not beside the digits: answering `3f` means switching
+ * layouts twice for two characters. The `0x` is there because it is habit, not because the
+ * answer needs it - it is thrown away before the comparison either way.
+ */
+private val HEX =
+    listOf(
+        Symbol("a"),
+        Symbol("b"),
+        Symbol("c"),
+        Symbol("d"),
+        Symbol("e"),
+        Symbol("f"),
+        Symbol("0x"),
     )

@@ -106,6 +106,19 @@ data class GeneratedTask(
     /** The widest number this card rolls */
     val mask: Long get() = (1L shl width) - 1
 
+    /**
+     * Whether answers to this card are written with the hexadecimal letters.
+     *
+     * Asked of the card and not of the numbers that came up, so the extra keys appearing never
+     * tell the reader that this particular answer has a letter in it.
+     */
+    val wantsHex: Boolean
+        get() =
+            when (kind) {
+                GenKind.Printf -> format.any { it == 'x' || it == 'X' }
+                else -> toBase > 10
+            }
+
     companion object {
         /** The bases a card may be written in. Ten needs no prefix; the others have one in C. */
         fun baseName(base: Int): String =

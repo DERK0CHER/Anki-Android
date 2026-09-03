@@ -82,6 +82,8 @@ fun TypeRound(
  * @param accepts whether what was typed is right
  * @param solution shown after a wrong answer, and only then: after a right one it is already on
  *   the screen, written by the reader
+ * @param symbols which extra characters to offer, or null for none - a decimal answer needs no
+ *   bar of braces underneath it
  */
 @Composable
 fun OneLineAnswer(
@@ -89,6 +91,7 @@ fun OneLineAnswer(
     accepts: (String) -> Boolean,
     solution: String,
     onSubmit: (correct: Boolean) -> Unit,
+    symbols: SymbolSet? = SymbolSet.Code,
 ) {
     var typed by remember(key) { mutableStateOf(TextFieldValue("")) }
     var verdict by remember(key) { mutableStateOf<Boolean?>(null) }
@@ -108,8 +111,10 @@ fun OneLineAnswer(
         )
 
         if (settled == null) {
-            Spacer(Modifier.height(12.dp))
-            SymbolBar(onInsert = { typed = typed.insert(it) })
+            symbols?.let { set ->
+                Spacer(Modifier.height(12.dp))
+                SymbolBar(onInsert = { typed = typed.insert(it) }, set = set)
+            }
             Spacer(Modifier.height(18.dp))
             BueffelButton(text = "Abgeben", onClick = { verdict = accepts(typed.text) })
         } else {

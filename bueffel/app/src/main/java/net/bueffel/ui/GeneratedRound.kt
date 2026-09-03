@@ -51,6 +51,11 @@ fun GeneratedRound(
             accepts = { rolled.matches(it) },
             solution = rolled.answer,
             onSubmit = onSubmit,
+            // The braces and arrows belong to writing C; what a hexadecimal answer needs is the
+            // six letters, and a decimal one needs nothing the keyboard does not already show.
+            // Asked of the card rather than of the roll, so the bar never says something about
+            // the number that came up.
+            symbols = if (task.wantsHex) SymbolSet.Hex else null,
         )
         Spacer(Modifier.height(20.dp))
     }
