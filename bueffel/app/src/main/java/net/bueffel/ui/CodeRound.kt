@@ -70,12 +70,9 @@ fun CodeRound(
 
     fun submit() {
         val mine = CodeTask.lines(typed.text)
-        // the alternative that matches best is the one to be marked against, so a card with two
-        // accepted spellings does not fail against the first one listed
-        val against = task.accepted.map { CodeTask.lines(it) }
-        val exact = against.firstOrNull { LineDiff.same(mine, it) }
-        val chosen = exact ?: against.minByOrNull { LineDiff.compare(mine, it).count { row -> row.change != LineChange.Same } }
-        val compared = LineDiff.compare(mine, chosen ?: emptyList())
+        // marked against whichever accepted spelling lines up best, so a card with two of them
+        // does not fail against the first one listed
+        val compared = LineDiff.compare(mine, LineDiff.bestMatch(mine, task.accepted))
         rows = compared
         marks.clear()
         marks += Marking.from(compared).marks
@@ -90,23 +87,18 @@ fun CodeRound(
 
         val compared = rows
         if (compared == null) {
-            Editor(value = typed, onValueChange = { typed = it })
+            CodeEditor(value = typed, onValueChange = { typed = it })
             Spacer(Modifier.height(12.dp))
             SymbolBar(onInsert = { typed = typed.insert(it) })
             Spacer(Modifier.height(18.dp))
             BueffelButton(text = "Abgeben", onClick = { submit() })
         } else {
             val marking = Marking(marks.toList(), maxPoints = compared.count { it.change != LineChange.Extra })
-            Caption(text = "Zeile antippen, um sie anders zu bewerten")
-            Spacer(Modifier.height(12.dp))
-            compared.forEachIndexed { index, row ->
-                MarkedRow(
-                    row = row,
-                    mark = marks.getOrElse(index) { LineMark.Right },
-                    onCycle = { marks[index] = marks[index].next() },
-                )
-                Spacer(Modifier.height(6.dp))
-            }
+            LineMarking(
+                rows = compared,
+                marks = marks,
+                onCycle = { at -> marks[at] = marks[at].next() },
+            )
             Spacer(Modifier.height(18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -135,7 +127,7 @@ fun CodeRound(
  * line of a function is what stops people typing it out at all.
  */
 @Composable
-private fun Editor(
+fun CodeEditor(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
 ) {
@@ -182,6 +174,35 @@ private fun TextFieldValue.autoIndent(before: TextFieldValue): TextFieldValue {
     val indent = previous.takeWhile { it == ' ' || it == '\t' }
     if (indent.isEmpty()) return this
     return TextFieldValue(text.replaceRange(at, at, indent), TextRange(at + indent.length))
+}
+
+/**
+ * The comparison, with a mark on every line that the reader can change by tapping it.
+ *
+ * Shared with the mock paper, where the same answer is marked the same way after it is handed
+ * in - the marking is the exam's own arithmetic, and there is no reason for the two to differ.
+ *
+ * @param marks one per row, in the same order
+ * @param onCycle the row that was tapped
+ */
+@Composable
+fun LineMarking(
+    rows: List<DiffRow>,
+    marks: List<LineMark>,
+    onCycle: (Int) -> Unit,
+) {
+    Column {
+        Caption(text = "Zeile antippen, um sie anders zu bewerten")
+        Spacer(Modifier.height(12.dp))
+        rows.forEachIndexed { index, row ->
+            MarkedRow(
+                row = row,
+                mark = marks.getOrElse(index) { LineMark.Right },
+                onCycle = { onCycle(index) },
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+    }
 }
 
 /** One line of the comparison, tapped to change what it is worth */
@@ -246,7 +267,7 @@ private fun MarkedRow(
     }
 }
 
-private fun LineMark.next(): LineMark =
+fun LineMark.next(): LineMark =
     when (this) {
         LineMark.Right -> LineMark.Syntax
         LineMark.Syntax -> LineMark.Semantic

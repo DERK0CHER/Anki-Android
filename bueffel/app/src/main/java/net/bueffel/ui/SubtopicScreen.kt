@@ -54,6 +54,7 @@ fun SubtopicScreen(
     onStudyAll: () -> Unit,
     onBack: () -> Unit,
     onStudyTagged: (Set<String>) -> Unit = {},
+    onExam: () -> Unit = {},
 ) {
     // Which labels are being narrowed down to. Held here rather than by the caller: it is the
     // question this screen asks, and it is answered again every time the screen is opened.
@@ -131,6 +132,10 @@ fun SubtopicScreen(
                 onClick = { onStudyTagged(selected.toSet()) },
             )
         }
+        Spacer(Modifier.height(10.dp))
+        // Quieter than the studying, because it is the rarer thing to want: a mock is worth
+        // sitting once a week, and studying is worth doing every day.
+        BueffelButton(text = "Klausur", onClick = onExam, filled = false)
         Spacer(Modifier.height(20.dp))
     }
 }

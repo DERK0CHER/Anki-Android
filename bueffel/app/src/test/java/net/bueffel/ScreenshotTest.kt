@@ -3,13 +3,21 @@ package net.bueffel
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
 import net.bueffel.data.ImageStore
+import net.bueffel.domain.ExamDraw
+import net.bueffel.domain.ExamPlan
 import net.bueffel.model.Card
 import net.bueffel.model.CodeTask
 import net.bueffel.model.Deck
@@ -19,10 +27,15 @@ import net.bueffel.model.Question
 import net.bueffel.model.SketchTask
 import net.bueffel.model.Subtopic
 import net.bueffel.ui.DeckListScreen
+import net.bueffel.ui.ExamResult
+import net.bueffel.ui.ExamScreen
+import net.bueffel.ui.ExamSetupScreen
 import net.bueffel.ui.ImportScreen
 import net.bueffel.ui.LocalImages
 import net.bueffel.ui.StudyScreen
 import net.bueffel.ui.SubtopicScreen
+import net.bueffel.ui.theme.BueffelColors
+import net.bueffel.ui.theme.BueffelShape
 import net.bueffel.ui.theme.BueffelTheme
 import org.junit.Rule
 import org.junit.Test
@@ -32,6 +45,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlin.random.Random
 
 /**
  * Renders each screen to a PNG.
@@ -438,6 +452,63 @@ class ScreenshotTest {
         capture("16-sketch")
         composeRule.onNodeWithText("Lösung zeigen").performClick()
         capture("17-sketch-answer")
+    }
+
+    /** Setting the paper up: how many questions out of each part, and how long there is */
+    @Test
+    fun examSetup() {
+        composeRule.setContent {
+            BueffelTheme { ExamSetupScreen(deck = sampleDeck(), onStart = {}, onBack = {}) }
+        }
+        capture("18-exam-setup")
+    }
+
+    /**
+     * The paper being sat: a clock, no colour on the boxes, and a way back through the questions.
+     *
+     * The clock is stopped for the picture. It ticks once a second and takes the wall clock
+     * whenever that says less; under the test clock a tick costs nothing at all, so left to
+     * itself it would run the whole two hours out before the shutter.
+     */
+    @Test
+    fun examSitting() {
+        val paper = ExamDraw.draw(sampleDeck(), ExamPlan(mapOf("sample-1" to 2)), Random(1))
+        composeRule.mainClock.autoAdvance = false
+        composeRule.setContent {
+            BueffelTheme { ExamScreen(exam = paper, onLeave = {}, onDone = {}) }
+        }
+        composeRule.mainClock.advanceTimeByFrame()
+        capture("19-exam")
+    }
+
+    /** What it came to, part by part, which is the half that says what to revise */
+    @Test
+    fun examResult() {
+        val paper =
+            ExamDraw.draw(
+                sampleDeck(),
+                ExamPlan(mapOf("sample-0" to 1, "sample-1" to 2, "sample-2" to 2)),
+                Random(2),
+            )
+        // two right, three not, so the bars have something to say
+        for (at in listOf(0, 3)) {
+            val asked = paper.item(at).task as Question
+            paper.pick(at, paper.item(at).order.indexOf(asked.correctIndex))
+        }
+        composeRule.setContent {
+            BueffelTheme {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(BueffelColors.Background)
+                            .padding(horizontal = BueffelShape.Gutter, vertical = 24.dp),
+                ) {
+                    ExamResult(exam = paper, onDone = {})
+                }
+            }
+        }
+        capture("20-exam-result")
     }
 
     private companion object {

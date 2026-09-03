@@ -24,10 +24,14 @@ import androidx.compose.ui.platform.LocalContext
 import net.bueffel.data.DeckStore
 import net.bueffel.data.ImageStore
 import net.bueffel.data.Settings
+import net.bueffel.domain.Exam
+import net.bueffel.domain.ExamDraw
 import net.bueffel.importer.DeckBuilder
 import net.bueffel.model.Card
 import net.bueffel.model.Deck
 import net.bueffel.ui.DeckListScreen
+import net.bueffel.ui.ExamScreen
+import net.bueffel.ui.ExamSetupScreen
 import net.bueffel.ui.ImportScreen
 import net.bueffel.ui.LocalImages
 import net.bueffel.ui.StudyScreen
@@ -79,6 +83,16 @@ private sealed interface Screen {
         val subtopicId: String?,
         val tags: Set<String> = emptySet(),
     ) : Screen
+
+    /** Setting up a mock paper: how many questions out of each part, and how long */
+    data class ExamSetup(
+        val deckId: String,
+    ) : Screen
+
+    /** Sitting the paper that was drawn. The paper itself lives beside the screen. */
+    data class Sitting(
+        val deckId: String,
+    ) : Screen
 }
 
 @Composable
@@ -90,6 +104,10 @@ private fun BueffelApp(
     var decks by remember { mutableStateOf(store.load()) }
     var screen by remember { mutableStateOf<Screen>(Screen.Decks) }
     var soundOn by remember { mutableStateOf(settings.soundOn) }
+
+    // The paper being sat, if one is. It lives here rather than in the screen so that it is
+    // drawn once, when it is started, rather than again on every recomposition.
+    var paper by remember { mutableStateOf<Exam?>(null) }
 
     fun persist(updated: List<Deck>) {
         decks = updated
@@ -255,6 +273,45 @@ private fun BueffelApp(
                     onStudyAll = { screen = Screen.Study(deck.id, null) },
                     onBack = { screen = Screen.Decks },
                     onStudyTagged = { screen = Screen.Study(deck.id, null, it) },
+                    onExam = { screen = Screen.ExamSetup(deck.id) },
+                )
+            }
+        }
+
+        is Screen.ExamSetup -> {
+            val deck = decks.firstOrNull { it.id == current.deckId }
+            if (deck == null) {
+                LaunchedEffect(current.deckId) { screen = Screen.Decks }
+            } else {
+                BackHandler { screen = Screen.Subtopics(deck.id) }
+                ExamSetupScreen(
+                    deck = deck,
+                    onBack = { screen = Screen.Subtopics(deck.id) },
+                    onStart = { plan ->
+                        paper = ExamDraw.draw(deck, plan)
+                        screen = Screen.Sitting(deck.id)
+                    },
+                )
+            }
+        }
+
+        is Screen.Sitting -> {
+            val sitting = paper
+            if (sitting == null) {
+                LaunchedEffect(current.deckId) { screen = Screen.Decks }
+            } else {
+                // no write-back: a mock is a measurement, and one that moves the boxes it
+                // measures is worth less than no measurement at all
+                ExamScreen(
+                    exam = sitting,
+                    onLeave = {
+                        paper = null
+                        screen = Screen.Subtopics(current.deckId)
+                    },
+                    onDone = {
+                        paper = null
+                        screen = Screen.Subtopics(current.deckId)
+                    },
                 )
             }
         }

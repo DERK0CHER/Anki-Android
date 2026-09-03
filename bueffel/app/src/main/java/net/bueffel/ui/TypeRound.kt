@@ -98,7 +98,7 @@ fun OneLineAnswer(
     val settled = verdict
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        OneLine(
+        OneLineField(
             value = typed,
             readOnly = settled != null,
             outline =
@@ -143,7 +143,7 @@ fun OneLineAnswer(
  * `Int i`. Return does not break the line here - there is only one - so it is labelled Done.
  */
 @Composable
-private fun OneLine(
+fun OneLineField(
     value: TextFieldValue,
     readOnly: Boolean,
     outline: Color,

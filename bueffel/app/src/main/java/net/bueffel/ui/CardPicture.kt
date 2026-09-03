@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -82,6 +83,11 @@ fun CardPicture(
             modifier
                 .fillMaxWidth()
                 .heightIn(max = MAX_HEIGHT)
+                // The picture's own shape, so it is as wide as the card and as tall as that
+                // makes it. Without this the box is only as tall as the picture's pixels say -
+                // a 640 pixel diagram is 213 dp on a dense screen - and the picture is drawn
+                // small in the middle of a full width row, which is what the first render did.
+                .aspectRatio(bitmap.width.toFloat() / bitmap.height.coerceAtLeast(1))
                 .clip(RoundedCornerShape(BueffelShape.Radius)),
     )
 }

@@ -1,5 +1,7 @@
 package net.bueffel.domain
 
+import net.bueffel.model.CodeTask
+
 /** What happened to one line between what was typed and the model answer */
 enum class LineChange {
     /** The same line, in the same place */
@@ -89,6 +91,27 @@ object LineDiff {
             j++
         }
         return rows
+    }
+
+    /**
+     * The accepted answer that lines up best with what was typed.
+     *
+     * A card with two accepted spellings must not be marked against the first one listed: an
+     * answer written the other way would come out as every line wrong. An exact match wins
+     * outright, and otherwise the one that leaves the fewest lines in disagreement.
+     *
+     * @param accepted the model answers, as text; the returned one is already split into lines
+     */
+    fun bestMatch(
+        mine: List<String>,
+        accepted: List<String>,
+    ): List<String> {
+        val against = accepted.map { CodeTask.lines(it) }
+        val exact = against.firstOrNull { same(mine, it) }
+        if (exact != null) return exact
+        return against.minByOrNull { theirs ->
+            compare(mine, theirs).count { it.change != LineChange.Same }
+        } ?: emptyList()
     }
 
     /** Whether two answers are the same code, ignoring indentation and blank lines */
