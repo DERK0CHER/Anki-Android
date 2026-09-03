@@ -195,12 +195,21 @@ cd bueffel
 ./gradlew :app:assembleDebug
 ```
 
-Es gibt keinen Emulator in dieser CI, also werden die Screens stattdessen mit Roborazzi in
-einem JVM-Test gezeichnet und die Bilder nach `bueffel/screenshots/` eingecheckt:
+Die Screens werden mit Roborazzi in einem JVM-Test gezeichnet und die Bilder nach
+`bueffel/screenshots/` eingecheckt — schneller als jeder Emulator und der Grund, warum mehrere
+Layoutfehler auffielen, bevor sie auf ein Handy kamen:
 
 ```sh
 cd bueffel
 ./gradlew :app:recordRoborazziDebug
+```
+
+Was ein Bild nicht beantworten kann — ob eine Geste erkannt wird — läuft in einem zweiten
+CI-Job auf einem echten Emulator:
+
+```sh
+cd bueffel
+./gradlew :app:connectedDebugAndroidTest
 ```
 
 Fertige APKs hängen an der rollenden Vorabversion `bueffel-latest`.

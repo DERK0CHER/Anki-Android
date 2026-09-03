@@ -4,9 +4,9 @@ Die zehn Punkte in der Reihenfolge, in der sie gestellt wurden — Reihenfolge i
 Erledigtes steht mit dabei, damit klar ist, worauf aufgesetzt wird.
 
 Alle zehn Punkte sind gebaut. Stand: Kopf von `claude/anki-multiple-choice-buttons-xss2q6`.
-Was hier als erledigt steht, ist gebaut und durch Tests belegt; was als **ungeprüft** markiert
-ist, ließ sich ohne Gerät nicht verifizieren (kein Emulator, kein Ton) und ist beim ersten
-echten Lauf zu kontrollieren.
+Was hier als erledigt steht, ist gebaut und durch Tests belegt. Was als **ungeprüft** markiert
+ist, hat noch keinen Test — seit die CI einen Emulator-Job hat, heißt das „noch nicht
+geschrieben" und nicht mehr „geht hier nicht".
 
 | Punkt | Stand |
 | --- | --- |
@@ -60,19 +60,21 @@ echten Lauf zu kontrollieren.
 - Greifen per Langdruck, Zeilen tauschen sobald der Finger eine Zeilenhöhe überschritten hat.
 - Zeilen haben feste Höhe (`ROW_HEIGHT = 46.dp`) und scrollen seitwärts statt umzubrechen.
 - Eine vermurkste Sortierung setzt den Zähler auf 0 zurück.
-- **Ungeprüft: die Drag-Geste selbst** — und zwar belegt, nicht vermutet. `SortRoundTest` fährt
-  sie an, aber der Long-Press wird unter Robolectric nicht erkannt (drei Varianten probiert:
-  Main-Clock vorspulen, Event-Zeit vorspulen, beides zusammen mit dem Zug in vier Frames — die
-  Zeilen bleiben exakt eine Zeilenhöhe auseinander stehen). Der Test steht als `@Ignore` drin,
-  damit nachvollziehbar ist, was versucht wurde. **Das ist der Fall, für den sich ein Emulator
-  lohnt.**
-- Was dabei trotzdem herauskam: ein echter Fehler. Jede Zeile hatte ihre Geste an ihrer
-  *Position* verschlüsselt (`pointerInput(task, position)`, Zeilen ohne `key`), also hat der
-  erste Tausch die Modifier neu verschlüsselt und die laufende Geste weggeworfen. Auf dem Gerät:
-  Zeile anfassen, sie rutscht **genau ein** Feld, danach passiert nichts mehr, bis man loslässt.
-  Jetzt `key(line)` und `pointerInput(task, line)` — ungeprüft, aber die Ursache ist eindeutig.
-- Die Rechnung „Finger 180 px weiter → Zeile zwei Plätze tiefer" liegt jetzt als `RowDrag` in
-  `domain/` und ist getestet. Für das Gerät bleibt nur noch die Frage, ob die Events ankommen.
+- **Die Drag-Geste ist geprüft** — auf einem echten Android 14 im Emulator, CI-Job „Gesten auf
+  einem Emulator" (`app/src/androidTest/…/SortDragTest.kt`). Der Test schreibt ein Set in den
+  Speicher der App, startet sie und baut die Touch-Events von Hand: Druck, halten über den
+  System-Long-Press hinaus, dann Bewegungen im Frame-Abstand. Nichts davon bringt eine eigene
+  Uhr mit, und genau daran war der JVM-Versuch dreimal gescheitert (Main-Clock vorspulen,
+  Event-Zeit vorspulen, beides — die Zeilen blieben exakt eine Zeilenhöhe auseinander stehen).
+  Der gescheiterte Test steht als `@Ignore` in `SortRoundTest`, damit nachvollziehbar bleibt,
+  was nicht geht.
+- Dabei kam ein **echter Fehler** heraus: jede Zeile hatte ihre Geste an ihrer *Position*
+  verschlüsselt (`pointerInput(task, position)`, Zeilen ohne `key`), also hat der erste Tausch
+  die Modifier neu verschlüsselt und die laufende Geste weggeworfen. Auf dem Gerät: Zeile
+  anfassen, sie rutscht **genau ein** Feld, danach passiert nichts mehr, bis man loslässt.
+  Jetzt `key(line)` und `pointerInput(task, line)` — und der Emulator bestätigt es.
+- Die Rechnung „Finger 180 px weiter → Zeile zwei Plätze tiefer" liegt als `RowDrag` in
+  `domain/` und ist einzeln getestet.
 
 ## 3. Tipp-Antwort mit exaktem Vergleich — **erledigt**
 
@@ -238,7 +240,9 @@ den Bereichen.
 
 ## Was noch ungeprüft ist
 
-- **Drag-Geste** im Sortiermodus (`ui/SortRound.kt`, `ROW_HEIGHT`, `rowPx`).
+Seit es den Emulator-Job gibt, ist das keine Liste von Unmöglichkeiten mehr, sondern eine von
+ungeschriebenen Tests. Jeder Punkt hier ließe sich in `app/src/androidTest/` beantworten.
+
 - **Töne** (`audio/Feedback.kt`): synthetisierte Sinustöne, aufsteigende Quinte für richtig,
   fallende Terz für falsch. Frequenzen und Längen sind vier Zahlen in `RIGHT`/`WRONG`. Dass die
   Lautstärketasten sie erreichen, ist über `USAGE_MEDIA` plus `volumeControlStream` gelöst — die
@@ -268,12 +272,16 @@ hat kein Datum und ist damit sofort fällig.
 
 ```sh
 cd bueffel
-./gradlew :app:assembleDebug          # APK
-./gradlew :app:testDebugUnitTest      # Tests
-./gradlew :app:recordRoborazziDebug   # Screens nach bueffel/screenshots/ rendern
+./gradlew :app:assembleDebug             # APK
+./gradlew :app:testDebugUnitTest         # Tests
+./gradlew :app:recordRoborazziDebug      # Screens nach bueffel/screenshots/ rendern
+./gradlew :app:connectedDebugAndroidTest # Gesten — braucht ein Gerät oder einen Emulator
 ```
 
-Es gibt keinen Emulator in der CI, deshalb sind die Screenshots die einzige Sichtprüfung dort.
+Die CI hat zwei Jobs: der eine baut, testet und rendert (kein Emulator, deshalb die
+Screenshots), der andere startet einen Emulator und fährt die Gesten an. Der zweite braucht
+~8 Minuten und ist die einzige Stelle, an der eine echte Berührung im Spiel ist.
+
 ktlint läuft nicht als Gradle-Task; Stil wurde von Hand nachgezogen. Wenn du es dauerhaft willst,
 lohnt das ktlint-Gradle-Plugin.
 
