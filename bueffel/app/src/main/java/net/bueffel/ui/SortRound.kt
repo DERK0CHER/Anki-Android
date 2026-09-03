@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,66 +73,74 @@ fun SortRound(
         Spacer(Modifier.height(20.dp))
 
         order.forEachIndexed { position, line ->
-            val held = position == dragging
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(ROW_HEIGHT)
-                        .graphicsLayer {
-                            if (held) {
-                                translationY = travel
-                                // lifted off the stack, so it is obvious which row is in hand
-                                shadowElevation = 12f
-                            }
-                        }.clip(RoundedCornerShape(10.dp))
-                        .background(if (held) BueffelColors.SurfaceRaised else BueffelColors.Surface)
-                        .pointerInput(task, position) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = {
-                                    dragging = position
-                                    travel = 0f
-                                },
-                                onDragEnd = {
-                                    dragging = -1
-                                    travel = 0f
-                                },
-                                onDragCancel = {
-                                    dragging = -1
-                                    travel = 0f
-                                },
-                                // the drag distance is the second parameter; the change itself
-                                // carries a position, not a delta
-                                onDrag = { _, dragAmount ->
-                                    travel += dragAmount.y
-                                    // swapped as soon as the finger has crossed a whole row, and
-                                    // the travel is reduced by that row so it keeps working for
-                                    // a drag across several
-                                    val from = dragging
-                                    if (from >= 0) {
-                                        val step = (travel / rowPx).toInt()
-                                        val to = (from + step).coerceIn(order.indices)
-                                        if (to != from) {
-                                            order.add(to, order.removeAt(from))
-                                            travel -= (to - from) * rowPx
-                                            dragging = to
+            // Keyed on the line rather than left to fall where it lands. Without this the rows
+            // are told apart by their slot, so a swap hands every row below the finger a
+            // different one - and with it the gesture that was running on it.
+            key(line) {
+                val held = position == dragging
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(ROW_HEIGHT)
+                            .graphicsLayer {
+                                if (held) {
+                                    translationY = travel
+                                    // lifted off the stack, so it is obvious which row is in hand
+                                    shadowElevation = 12f
+                                }
+                            }.clip(RoundedCornerShape(10.dp))
+                            .background(if (held) BueffelColors.SurfaceRaised else BueffelColors.Surface)
+                            // keyed on the line, not on where it currently sits: a swap changes
+                            // every position below the finger, and re-keying this would throw
+                            // away the gesture that is running on it
+                            .pointerInput(task, line) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        dragging = order.indexOf(line)
+                                        travel = 0f
+                                    },
+                                    onDragEnd = {
+                                        dragging = -1
+                                        travel = 0f
+                                    },
+                                    onDragCancel = {
+                                        dragging = -1
+                                        travel = 0f
+                                    },
+                                    // the drag distance is the second parameter; the change
+                                    // itself carries a position, not a delta
+                                    onDrag = { _, dragAmount ->
+                                        travel += dragAmount.y
+                                        // swapped as soon as the finger has crossed a whole row,
+                                        // and the travel is reduced by that row so it keeps
+                                        // working for a drag across several
+                                        val from = dragging
+                                        if (from >= 0) {
+                                            val step = (travel / rowPx).toInt()
+                                            val to = (from + step).coerceIn(order.indices)
+                                            if (to != from) {
+                                                order.add(to, order.removeAt(from))
+                                                travel -= (to - from) * rowPx
+                                                dragging = to
+                                            }
                                         }
-                                    }
-                                },
-                            )
-                        }.padding(horizontal = 14.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Text(
-                    text = target[line],
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = BueffelColors.TextPrimary,
-                    maxLines = 1,
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                )
+                                    },
+                                )
+                            }.padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        text = target[line],
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = BueffelColors.TextPrimary,
+                        maxLines = 1,
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    )
+                }
+                Spacer(Modifier.height(ROW_GAP))
             }
-            Spacer(Modifier.height(ROW_GAP))
         }
 
         Spacer(Modifier.height(18.dp))

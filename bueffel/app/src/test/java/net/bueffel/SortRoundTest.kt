@@ -65,17 +65,20 @@ class SortRoundTest {
         // far enough to cross one row, not so far as to depend on the gap between them
         val travel = heightOf(top) * 2f
 
-        composeRule.onNodeWithText(top).performTouchInput {
-            down(center)
-            // the gesture only starts after a long press, so the finger has to wait
-            advanceEventTime(700)
-            moveBy(Offset(0f, travel))
-            advanceEventTime(50)
-            up()
-        }
+        // One event at a time, with the clock moved on in between. The long press waits on the
+        // clock rather than on the timestamps of the events, so a gesture sent as one block
+        // arrives before the press has been recognised and is thrown away as a scroll.
+        composeRule.onNodeWithText(top).performTouchInput { down(center) }
+        composeRule.mainClock.advanceTimeBy(LONG_PRESS)
+        composeRule.onNodeWithText(top).performTouchInput { moveBy(Offset(0f, travel)) }
+        composeRule.mainClock.advanceTimeBy(100)
+        composeRule.onNodeWithText(top).performTouchInput { up() }
         composeRule.mainClock.advanceTimeBy(500)
 
-        assertTrue("the row that was picked up stayed where it was", yOf(top) > yOf(second))
+        assertTrue(
+            "the row picked up did not move: top at ${yOf(top)}, the one under it at ${yOf(second)}",
+            yOf(top) > yOf(second),
+        )
     }
 
     @Test
@@ -98,5 +101,10 @@ class SortRoundTest {
 
         // whichever way the shuffle fell, the round has to be finishable
         composeRule.onNodeWithText("Weiter").assertIsDisplayed()
+    }
+
+    private companion object {
+        /** Comfortably past Android's long press timeout, which is half a second */
+        const val LONG_PRESS = 1000L
     }
 }
